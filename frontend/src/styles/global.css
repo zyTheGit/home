@@ -1,0 +1,72 @@
+:root {
+  --primary-color: #1989fa;
+  --success-color: #07c160;
+  --warning-color: #ff976a;
+  --danger-color: #ee0a24;
+  --text-color: #323233;
+  --text-color-secondary: #969799;
+  --border-color: #ebedf0;
+  --background-color: #f7f8fa;
+  --card-background: #ffffff;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--background-color);
+}
+
+.page-container {
+  padding: 16px;
+  padding-bottom: 70px;
+}
+
+.card {
+  background: var(--card-background);
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(100, 101, 102, 0.08);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-color);
+  margin: 24px 16px 16px;
+}
+
+.stat-grid {
+  padding: 8px;
+  background: transparent;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, #1989fa 0%, #39a0ff 100%);
+  color: white;
+  border-radius: 12px;
+  padding: 20px;
+  height: 100%;
+}
+
+.stat-card__title {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.stat-card__value {
+  font-size: 24px;
+  font-weight: bold;
+  margin-top: 8px;
+}
+
+.action-button {
+  margin: 16px;
+}
+
+.van-nav-bar {
+  background: linear-gradient(to right, #1989fa, #39a0ff);
+}
+
