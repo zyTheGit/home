@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { House } from './entities/house.entity';
@@ -12,26 +12,38 @@ export class HousesService {
     private readonly houseRepository: Repository<House>,
   ) {}
 
-  async findAll(): Promise<House[]> {
-    return await this.houseRepository.find();
-  }
-
-  async findOne(id: number): Promise<House> {
-    return await this.houseRepository.findOne({ where: { id } });
-  }
-
   async create(createHouseDto: CreateHouseDto): Promise<House> {
     const house = this.houseRepository.create(createHouseDto);
     return await this.houseRepository.save(house);
   }
 
-  async update(id: number, updateHouseDto: UpdateHouseDto): Promise<House> {
-    await this.houseRepository.update(id, updateHouseDto);
-    return await this.findOne(id);
+  async findAll(): Promise<House[]> {
+    return await this.houseRepository.find({
+      relations: ['tenants']
+    });
   }
 
-  async remove(id: number): Promise<House> {
+  async findOne(id: number): Promise<House> {
+    const house = await this.houseRepository.findOne({
+      where: { id },
+      relations: ['tenants', 'payments']
+    });
+    
+    if (!house) {
+      throw new NotFoundException(`房源 #${id} 不存在`);
+    }
+    
+    return house;
+  }
+
+  async update(id: number, updateHouseDto: UpdateHouseDto): Promise<House> {
     const house = await this.findOne(id);
-    return await this.houseRepository.remove(house);
+    Object.assign(house, updateHouseDto);
+    return await this.houseRepository.save(house);
+  }
+
+  async remove(id: number): Promise<void> {
+    const house = await this.findOne(id);
+    await this.houseRepository.remove(house);
   }
 } 

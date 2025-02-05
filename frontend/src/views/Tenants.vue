@@ -1,110 +1,211 @@
 <template>
   <div class="tenants page-container">
+    <!-- 替换原有的 van-nav-bar -->
     <van-nav-bar title="租客管理" />
 
-    <van-button class="action-button" type="primary" block @click="showAddDialog = true">
-      <van-icon name="plus" /> 添加租客
-    </van-button>
+    <div class="content-wrapper">
+      <van-button
+        class="action-button"
+        type="primary"
+        block
+        @click="showAddDialog = true"
+      >
+        <van-icon name="plus" /> 添加租客
+      </van-button>
 
-    <div class="tenant-list">
-      <van-swipe-cell v-for="tenant in tenants" :key="tenant.id" :before-close="beforeClose">
-        <div class="card" @click="viewTenant(tenant)">
-          <div class="tenant-header">
-            <div class="tenant-info">
-              <span class="tenant-name">{{ tenant.name }}</span>
-              <van-tag :type="tenant.endDate ? 'warning' : 'success'" round size="small">
-                {{ tenant.endDate ? "已退租" : "在租" }}
-              </van-tag>
-            </div>
-          </div>
-          <div class="tenant-content">
-            <div class="info-item">
-              <van-icon name="phone-o" />
-              <span>{{ tenant.phone }}</span>
-            </div>
-            <div class="info-item">
-              <van-icon name="clock-o" />
-              <span>入住时间：{{ formatDate(tenant.startDate) }}</span>
-            </div>
-            <div class="info-item">
-              <van-icon name="home-o" />
-              <span>所租房源：{{ tenant.house?.title || "未分配" }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 左滑操作按钮 -->
-        <template #right>
-          <div class="swipe-buttons">
-            <van-button square type="primary" class="swipe-btn" @click="editTenant(tenant)">
-              <div class="btn-content">
-                <van-icon name="edit" />
-                <span>编辑</span>
+      <div class="tenant-list">
+        <van-swipe-cell
+          v-for="tenant in tenants"
+          :key="tenant.id"
+          :before-close="beforeClose"
+        >
+          <div class="card" @click="viewTenant(tenant)">
+            <div class="tenant-header">
+              <div class="tenant-info">
+                <span class="tenant-name">{{ tenant.name }}</span>
+                <van-tag
+                  :type="tenant.endDate ? 'warning' : 'success'"
+                  round
+                  size="small"
+                >
+                  {{ tenant.endDate ? "已退租" : "在租" }}
+                </van-tag>
               </div>
-            </van-button>
-            <van-button square type="danger" class="swipe-btn" @click="() => deleteTenant(tenant.id)">
-              <div class="btn-content">
-                <van-icon name="delete" />
-                <span>删除</span>
+            </div>
+            <div class="tenant-content">
+              <div class="info-item">
+                <van-icon name="phone-o" />
+                <span>{{ tenant.phone }}</span>
               </div>
-            </van-button>
+              <div class="info-item">
+                <van-icon name="clock-o" />
+                <span>入住时间：{{ formatDate(tenant.startDate) }}</span>
+              </div>
+              <div class="info-item">
+                <van-icon name="home-o" />
+                <span>所租房源：{{ tenant.house?.title || "未分配" }}</span>
+              </div>
+            </div>
           </div>
-        </template>
-      </van-swipe-cell>
-    </div>
 
-    <!-- 添加/编辑租客弹窗 -->
-    <van-dialog v-model:show="showAddDialog" :title="currentTenant ? '编辑租客' : '添加租客'" show-cancel-button
-      :before-close="handleDialogClose" class="custom-dialog">
-      <van-form @submit="handleSubmit">
-        <van-cell-group inset>
-          <van-field v-model="formData.name" name="name" label="姓名" placeholder="请输入租客姓名"
-            :rules="[{ required: true, message: '请填写姓名' }]" />
-          <van-field v-model="formData.phone" name="phone" label="联系电话" placeholder="请输入联系电话"
-            :rules="[{ required: true, message: '请填写联系电话' }]" />
-          <van-field v-model="formData.idCard" name="idCard" label="身份证号" placeholder="请输入身份证号"
-            :rules="[{ required: true, message: '请填写身份证号' }]" />
-          <van-field v-model="formData.startDate" name="startDate" label="入住日期" type="date"
-            :rules="[{ required: true, message: '请选择入住日期' }]" />
-          <van-field v-model="formData.endDate" name="endDate" label="退租日期" type="date" />
-          <van-field v-model="formData.houseId" name="houseId" label="所租房源" is-link readonly
-            :model-value="selectedHouse?.title" placeholder="请选择房源" :rules="[{ required: true, message: '请填写房源' }]"
-            @click="showHouseSelector = true" />
-        </van-cell-group>
-      </van-form>
-    </van-dialog>
-
-    <!-- 房源选择器 -->
-    <van-popup v-model:show="showHouseSelector" position="bottom" round>
-      <van-picker title="选择房源" :columns="availableHouses.map((h) => ({ text: h.title, value: h.id }))"
-        @confirm="onHouseSelect" @cancel="showHouseSelector = false" show-toolbar />
-    </van-popup>
-
-    <!-- 租客详情弹窗 -->
-    <van-dialog v-model:show="showDetailDialog" title="租客详情" class="detail-dialog" show-cancel-button
-      cancel-button-text="关闭" confirm-button-text="编辑" @confirm="editTenant(selectedTenant)">
-      <div class="detail-content" v-if="selectedTenant">
-        <van-cell-group inset>
-          <van-cell title="姓名" :value="selectedTenant.name" />
-          <van-cell title="联系电话" :value="selectedTenant.phone" />
-          <van-cell title="身份证号" :value="selectedTenant.idCard" />
-          <van-cell title="入住日期" :value="formatDate(selectedTenant.startDate)" />
-          <van-cell title="退租日期" :value="selectedTenant.endDate
-            ? formatDate(selectedTenant.endDate)
-            : '未退租'
-            " />
-          <van-cell title="所租房源" :value="selectedTenant.house?.title || '未分配'" />
-        </van-cell-group>
+          <!-- 左滑操作按钮 -->
+          <template #right>
+            <div class="swipe-buttons">
+              <van-button
+                square
+                type="primary"
+                class="swipe-btn"
+                @click="editTenant(tenant)"
+              >
+                <div class="btn-content">
+                  <van-icon name="edit" />
+                  <span>编辑</span>
+                </div>
+              </van-button>
+              <van-button
+                square
+                type="danger"
+                class="swipe-btn"
+                @click="() => deleteTenant(tenant.id)"
+              >
+                <div class="btn-content">
+                  <van-icon name="delete" />
+                  <span>删除</span>
+                </div>
+              </van-button>
+            </div>
+          </template>
+        </van-swipe-cell>
       </div>
-    </van-dialog>
+    </div>
+      <!-- 添加/编辑租客弹窗 -->
+      <van-dialog
+        v-model:show="showAddDialog"
+        :title="currentTenant ? '编辑租客' : '添加租客'"
+        show-cancel-button
+        :before-close="handleDialogClose"
+        class="custom-dialog"
+      >
+        <van-form @submit="handleSubmit">
+          <van-cell-group inset>
+            <van-field
+              v-model="formData.name"
+              name="name"
+              label="姓名"
+              required
+              placeholder="请输入租客姓名"
+              :rules="[{ required: true, message: '请填写姓名' }]"
+            ></van-field>
+            <van-field
+              v-model="formData.phone"
+              name="phone"
+              label="联系电话"
+              required
+              placeholder="请输入联系电话"
+              :rules="[{ required: true, message: '请填写联系电话' }]"
+            ></van-field>
+            <van-field
+              v-model="formData.idCard"
+              name="idCard"
+              label="身份证号"
+              placeholder="请输入身份证号"
+            ></van-field>
+            <van-field
+              v-model="formData.startDate"
+              name="startDate"
+              label="入住日期"
+              @click="openDate('startDate')"
+              required
+              :rules="[{ required: true, message: '请选择入住日期' }]"
+            ></van-field>
+            <van-field
+              v-model="formData.endDate"
+              name="endDate"
+              label="退租日期"
+              @click="openDate('endDate')"
+            ></van-field>
+            <van-field
+              v-model="formData.houseId"
+              name="houseId"
+              label="所租房源"
+              required
+              is-link
+              readonly
+              :model-value="selectedHouse?.title"
+              placeholder="请选择房源"
+              :rules="[{ required: true, message: '请填写房源' }]"
+              @click="showHouseSelector = true"
+            ></van-field>
+          </van-cell-group>
+        </van-form>
+      </van-dialog>
+
+      <!-- 房源选择器 -->
+      <van-popup v-model:show="showHouseSelector" position="bottom" round>
+        <van-picker
+          title="选择房源"
+          :columns="
+            availableHouses.map((h) => ({ text: h.title, value: h.id }))
+          "
+          @confirm="onHouseSelect"
+          @cancel="showHouseSelector = false"
+          show-toolbar
+        />
+      </van-popup>
+
+      <van-popup v-model:show="showPicker" destroy-on-close position="bottom">
+        <van-date-picker
+          :model-value="pickerValue"
+          @confirm="onConfirm"
+          @cancel="showPicker = false"
+        />
+      </van-popup>
+
+      <!-- 租客详情弹窗 -->
+      <van-dialog
+        v-model:show="showDetailDialog"
+        title="租客详情"
+        class="detail-dialog"
+        show-cancel-button
+        cancel-button-text="关闭"
+        confirm-button-text="编辑"
+        @confirm="editTenant(selectedTenant)"
+      >
+        <div class="detail-content" v-if="selectedTenant">
+          <van-cell-group inset>
+            <van-cell title="姓名" :value="selectedTenant.name" />
+            <van-cell title="联系电话" :value="selectedTenant.phone" />
+            <van-cell title="身份证号" :value="selectedTenant.idCard" />
+            <van-cell
+              title="入住日期"
+              :value="formatDate(selectedTenant.startDate)"
+            />
+            <van-cell
+              title="退租日期"
+              :value="
+                selectedTenant.endDate
+                  ? formatDate(selectedTenant.endDate)
+                  : '未退租'
+              "
+            />
+            <van-cell
+              title="所租房源"
+              :value="selectedTenant.house?.title || '未分配'"
+            />
+          </van-cell-group>
+        </div>
+      </van-dialog>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch } from "vue";
-import { showSuccessToast, Dialog, showFailToast } from "vant";
+import dayjs from "dayjs";
+import { showConfirmDialog, showNotify } from "vant";
 import { tenantApi, houseApi } from "../api";
 import type { Tenant, House } from "../types";
+import { dateUtils } from '../utils/date';
 
 const tenants = ref<Tenant[]>([]);
 const showAddDialog = ref(false);
@@ -124,22 +225,35 @@ const formData = reactive({
   houseId: null as number | null,
 });
 
+const showPicker = ref(false);
+const dateFieldKey = ref("");
+const pickerValue = ref([]);
+
 const loadTenants = async () => {
   try {
-    const data = await tenantApi.getTenants();
+    const { data } = await tenantApi.getTenants();
     tenants.value = data;
   } catch (error) {
-    showFailToast("加载租客数据失败");
+    showNotify({ type: "danger", message: "加载租客数据失败" });
   }
 };
 
 const loadAvailableHouses = async () => {
   try {
-    const data = await houseApi.getHouses();
-    availableHouses.value = data;
+    const { data } = await houseApi.getHouses();
+    // 只显示可租状态的房源
+    availableHouses.value = data.filter(
+      (house) => house.status === "available"
+    );
   } catch (error) {
-    showFailToast("加载房源失败");
+    showNotify({ type: "danger", message: "加载租客数据失败" });
   }
+};
+
+// 格式化日期为YYYY-MM-DD格式
+const formatDate = (dateStr?: string) => {
+  if (!dateStr) return null;
+  return dayjs(dateStr).format("YYYY-MM-DD"); // 这会返回YYYY-MM-DD格式
 };
 
 const resetForm = () => {
@@ -147,7 +261,7 @@ const resetForm = () => {
     name: "",
     phone: "",
     idCard: "",
-    startDate: new Date().toISOString().split("T")[0],
+    startDate: dayjs().format("YYYY-MM-DD"),
     endDate: "",
     houseId: undefined,
   });
@@ -161,60 +275,64 @@ watch(showAddDialog, (newVal) => {
   }
 });
 
-const handleSubmit = async () => {
+const checkParams = () => {
   // 添加校验逻辑
   const formFields = [
-    { field: 'name', label: '姓名', rules: [{ required: true, message: '请填写姓名' }] },
-    { field: 'phone', label: '联系电话', rules: [{ required: true, message: '请填写联系电话' }] },
-    { field: 'idCard', label: '身份证号', rules: [{ required: true, message: '请填写身份证号' }] },
-    { field: 'startDate', label: '入住日期', rules: [{ required: true, message: '请填写入住日期' }] },
-    { field: 'houseId', label: '房源', rules: [{ required: true, message: '请选择房源' }] },
+    { field: "name", label: "姓名" },
+    { field: "phone", label: "联系电话" },
+    { field: "startDate", label: "入住日期" },
+    { field: "houseId", label: "房源" },
   ];
 
-  for (const { field, label, rules } of formFields) {
-    const isRequired = rules.some(rule => rule.required);
-    if (isRequired && !formData[field] && field !== 'houseId') {
-      showFailToast(`请填写${label}`);
+  // 验证必填字段
+  for (const { field, label } of formFields) {
+    if (!formData[field]) {
+      showNotify({ type: "warning", message: `请填写${label}` });
       return false;
     }
   }
 
   // 验证房源是否已选择
   if (!selectedHouse.value?.id) {
-    showFailToast('请选择房源');
+    showNotify({ type: "warning", message: "请选择房源" });
     return false;
   }
 
-  try {
-    // 格式化日期为YYYY-MM-DD格式
-    const formatDate = (dateStr: string) => {
-      if (!dateStr) return null;
-      const date = new Date(dateStr);
-      return date.toISOString().split('T')[0];  // 这会返回YYYY-MM-DD格式
-    };
+  return true;
+};
 
+const handleSubmit = async () => {
+  try {
     const data = {
       ...formData,
-      startDate: formatDate(formData.startDate),
-      endDate: formatDate(formData.endDate),
+      startDate: dateUtils.formatDate(formData.startDate),
+      endDate: formData.endDate ? dateUtils.formatDate(formData.endDate) : null,
       houseId: Number(selectedHouse.value.id), // 确保houseId是数字类型
     };
 
     if (currentTenant.value) {
       await tenantApi.updateTenant(currentTenant.value.id, data);
-      showSuccessToast("更新成功");
+      showNotify({ type: "success", message: "更新成功" });
     } else {
       await tenantApi.createTenant(data);
-      showSuccessToast("添加成功");
+      showNotify({ type: "success", message: "添加成功" });
     }
-    
+
     showAddDialog.value = false;
     loadTenants();
     return true;
   } catch (error) {
-    showFailToast(error.response?.data?.message || "操作失败");
+    showNotify({
+      type: "danger",
+      message: error.response?.data?.message || "操作失败",
+    });
     return false;
   }
+};
+
+const openDate = (key) => {
+  showPicker.value = true;
+  dateFieldKey.value = key;
 };
 
 const viewTenant = (tenant: Tenant) => {
@@ -226,6 +344,8 @@ const editTenant = (tenant: Tenant) => {
   currentTenant.value = tenant;
   Object.assign(formData, {
     ...tenant,
+    startDate: formatDate(tenant.startDate),
+    endDate: formatDate(tenant.endDate),
     houseId: tenant.house?.id,
   });
   selectedHouse.value = tenant.house;
@@ -234,7 +354,7 @@ const editTenant = (tenant: Tenant) => {
 
 const deleteTenant = async (id: number) => {
   try {
-    await Dialog.confirm({
+    await showConfirmDialog({
       title: "确认删除",
       message: "确定要删除该租客吗？删除后无法恢复",
       confirmButtonText: "确认删除",
@@ -242,13 +362,13 @@ const deleteTenant = async (id: number) => {
     });
 
     await tenantApi.deleteTenant(id);
-    showSuccessToast("删除成功");
+    showNotify({ type: "success", message: "删除成功" });
     loadTenants();
   } catch (error) {
     if (error?.toString().includes("cancel")) {
       return;
     }
-    showFailToast('删除失败');
+    showNotify({ type: "danger", message: "删除失败" });
   }
 };
 
@@ -262,8 +382,10 @@ const onHouseSelect = ({ selectedValues }) => {
   showHouseSelector.value = false;
 };
 
-const formatDate = (date: string) => {
-  return new Date(date).toLocaleDateString("zh-CN");
+const onConfirm = ({ selectedValues }) => {
+  formData[dateFieldKey.value] = selectedValues.join("-");
+  pickerValue.value = selectedValues;
+  showPicker.value = false;
 };
 
 const beforeClose = ({ position }) => {
@@ -271,17 +393,20 @@ const beforeClose = ({ position }) => {
 };
 
 const handleDialogClose = (action: string) => {
-  if (action === 'confirm') {
-    handleSubmit();
+  if (action === "confirm") {
+    if (checkParams()) {
+      handleSubmit();
+    }
+    return false;
   } else {
-    showDialog({
+    showConfirmDialog({
       title: "确认关闭",
       message: "确定要关闭吗？",
       confirmButtonText: "确认关闭",
     }).then(() => {
       showAddDialog.value = false;
 
-      return true
+      return true;
     });
   }
 };
@@ -294,13 +419,22 @@ onMounted(() => {
 
 <style scoped>
 .page-container {
-  padding: 16px;
-  padding-bottom: 50px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
   background: var(--background-color);
 }
 
+.content-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  padding-bottom: 16px;
+}
+
+
 .action-button {
-  margin-bottom: 16px;
+  margin:0 0 16px 0;
 }
 
 .tenant-list {

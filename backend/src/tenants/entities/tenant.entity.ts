@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn } from 'typeorm';
 import { House } from '../../houses/entities/house.entity';
 import { Payment } from '../../payments/entities/payment.entity';
 
@@ -19,11 +19,14 @@ export class Tenant {
   @Column({ nullable: true })
   idCard: string;
 
-  @Column({ type: 'date' })
+  @Column({ type: 'timestamp' })
   startDate: Date;
 
-  @Column({ type: 'date', nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
   endDate: Date;
+
+  @CreateDateColumn()
+  createdAt: Date;
 
   @ManyToOne(() => House, house => house.tenants)
   house: House;

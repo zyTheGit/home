@@ -1,7 +1,8 @@
 export interface UserInfo {
   id: number
   username: string
-  role: string
+  phone: string
+  role: 'admin' | 'user'
 }
 
 export interface House {
@@ -22,20 +23,39 @@ export interface Tenant {
   name: string
   phone: string
   idCard: string
-  checkInDate: string
-  checkOutDate?: string
+  startDate: string
+  endDate?: string
   house?: House
   houseId?: number
 }
 
 export interface Statistics {
-  totalIncome: number
-  monthlyIncome: number
   totalHouses: number
-  occupancyRate: number
-  pendingPayments: number
-  monthlyTrend: {
-    month: string
-    income: number
-  }[]
+  rentedHouses: number
+  availableHouses: number
+  occupancyRate: string
+  totalIncome: number
+  totalTenants: number
+  monthlyStats?: {
+    rent: number
+    water: number
+    electricity: number
+    other: number
+    total: number
+  }
+}
+
+export interface LoginResponse {
+  token: string
+  user: UserInfo
+}
+
+export interface Payment {
+  id: number
+  type: 'rent' | 'water' | 'electricity' | 'other'
+  amount: number
+  date: string
+  remark?: string
+  houseId: number
+  createdAt: string
 } 

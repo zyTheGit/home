@@ -1,6 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
-import { Payment } from '../../payments/entities/payment.entity';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, OneToOne, JoinColumn } from 'typeorm';
 import { Tenant } from '../../tenants/entities/tenant.entity';
+import { Payment } from '../../payments/entities/payment.entity';
 
 @Entity()
 export class House {
@@ -22,7 +22,7 @@ export class House {
   @Column('decimal', { precision: 10, scale: 2 })
   electricityRate: number;  // 电费单价
 
-  @Column()
+  @Column('decimal', { precision: 10, scale: 2 })
   area: number;
 
   @Column({
@@ -32,15 +32,19 @@ export class House {
   })
   status: 'available' | 'rented' | 'maintenance';
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column('simple-array', { nullable: true })
+  @Column('simple-array')
   amenities: string[];  // 房屋设施
 
-  @OneToMany(() => Payment, payment => payment.house)
-  payments: Payment[];
+  @OneToOne(() => Tenant)
+  @JoinColumn()
+  tenant: Tenant;
 
   @OneToMany(() => Tenant, tenant => tenant.house)
   tenants: Tenant[];
+
+  @OneToMany(() => Payment, payment => payment.house)
+  payments: Payment[];
 } 

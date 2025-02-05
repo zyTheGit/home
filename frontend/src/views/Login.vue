@@ -1,7 +1,6 @@
 <template>
   <div class="login-container">
     <div class="login-header">
-      <img src="/logo.png" alt="Logo" class="logo" />
       <h2>租房管理系统</h2>
       <p class="subtitle">专业的房屋租赁管理平台</p>
     </div>
@@ -10,14 +9,14 @@
       <van-form @submit="onSubmit" class="login-form">
         <van-cell-group inset>
           <van-field
-            v-model="username"
-            name="username"
+            v-model="phone"
+            name="phone"
             label=""
-            placeholder="请输入用户名"
-            :rules="[{ required: true, message: '请填写用户名' }]"
+            placeholder="请输入手机号"
+            :rules="[{ required: true, message: '请填写手机号' }]"
           >
             <template #left-icon>
-              <van-icon name="user-o" class="field-icon" />
+              <van-icon name="phone-o" class="field-icon" />
             </template>
           </van-field>
           <van-field
@@ -56,37 +55,39 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useUserStore } from '../stores/user'
-import { useRouter } from 'vue-router'
-import { showToast } from 'vant'
+import { ref } from "vue";
+import { useUserStore } from "../stores/user";
+import { useRouter, useRoute } from "vue-router";
+import { showToast, showFailToast } from "vant";
+import { authApi } from "../api";
 
-const username = ref('')
-const password = ref('')
-const loading = ref(false)
-const userStore = useUserStore()
-const router = useRouter()
+const phone = ref("");
+const password = ref("");
+const loading = ref(false);
+const userStore = useUserStore();
+const router = useRouter();
+const route = useRoute();
 
 const onSubmit = async () => {
-  loading.value = true
+  loading.value = true;
   try {
-    // 这里添加实际的登录逻辑
-    const token = 'dummy-token' // 替换为实际的token
-    userStore.setToken(token)
+    const { data } = await authApi.login(phone.value, password.value);
+    userStore.setToken(data.token);
+    userStore.setUserInfo(data.user);
+
     showToast({
-      message: '登录成功',
-      type: 'success'
-    })
-    router.push('/')
-  } catch (error) {
-    showToast({
-      message: '登录失败，请检查用户名和密码',
-      type: 'fail'
-    })
+      message: "登录成功",
+      type: "success",
+    });
+
+    const redirectPath = (route.query.redirect as string) || "/";
+    router.replace(redirectPath);
+  } catch (error: any) {
+    showFailToast(error.response?.data?.message || "登录失败");
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 </script>
 
 <style scoped>
@@ -97,6 +98,7 @@ const onSubmit = async () => {
   align-items: center;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   padding: 20px;
+  overflow:hidden;
 }
 
 .login-header {
@@ -131,6 +133,7 @@ const onSubmit = async () => {
   border-radius: 16px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   padding: 24px;
+  box-sizing: border-box;
 }
 
 .login-form {
@@ -182,5 +185,4 @@ const onSubmit = async () => {
 :deep(.van-button--primary:active) {
   transform: scale(0.98);
 }
-</style> 
-</script> 
+</style>

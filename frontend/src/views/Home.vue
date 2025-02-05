@@ -1,51 +1,20 @@
 <template>
   <div class="home">
-    <van-nav-bar title="租房管理系统">
-      <template #right>
-        <van-icon name="setting-o" size="18" @click="showSettings" />
-      </template>
-    </van-nav-bar>
+    <van-nav-bar title="首页" />
 
-    <div class="page-container">
-      <!-- 统计卡片 -->
-      <div class="stat-grid">
-        <van-grid :column-num="2" :gutter="12">
-          <van-grid-item>
-            <div class="stat-card">
-              <div class="stat-card__title">总收入</div>
-              <div class="stat-card__value">
-                ¥{{ formatNumber(statistics.totalIncome) }}
-              </div>
-              <div class="stat-card__trend">
-                <van-icon name="arrow-up" />
-                <span>8.2%</span>
-              </div>
-            </div>
-          </van-grid-item>
-          <van-grid-item>
-            <div
-              class="stat-card"
-              style="
-                background: linear-gradient(135deg, #07c160 0%, #10b981 100%);
-              "
-            >
-              <div class="stat-card__title">本月收入</div>
-              <div class="stat-card__value">
-                ¥{{ formatNumber(statistics.monthlyIncome) }}
-              </div>
-              <div class="stat-card__trend">
-                <van-icon name="arrow-up" />
-                <span>12.5%</span>
-              </div>
-            </div>
-          </van-grid-item>
+    <div class="content">
+      <!-- 快捷操作 -->
+      <div class="quick-actions">
+        <van-grid :column-num="2" :gutter="16">
+          <van-grid-item icon="home-o" text="房源管理" to="/houses" />
+          <van-grid-item icon="friends-o" text="租客管理" to="/tenants" />
         </van-grid>
       </div>
 
-      <!-- 房屋概览 -->
-      <div class="section-title">房屋概览</div>
-      <div class="overview-cards">
-        <van-grid :column-num="3" :gutter="10">
+      <!-- 概览数据 -->
+      <div class="overview-section">
+        <div class="section-title">数据概览</div>
+        <van-grid :column-num="2" :gutter="16">
           <van-grid-item>
             <div class="overview-card">
               <div class="overview-card__value">
@@ -57,7 +26,15 @@
           <van-grid-item>
             <div class="overview-card">
               <div class="overview-card__value">
-                {{ statistics.occupancyRate || 0 }}%
+                {{ statistics.rentedHouses || 0 }}
+              </div>
+              <div class="overview-card__label">已租房源</div>
+            </div>
+          </van-grid-item>
+          <van-grid-item>
+            <div class="overview-card">
+              <div class="overview-card__value">
+                {{ statistics.occupancyRate }}%
               </div>
               <div class="overview-card__label">出租率</div>
             </div>
@@ -65,95 +42,160 @@
           <van-grid-item>
             <div class="overview-card">
               <div class="overview-card__value">
-                {{ statistics.pendingPayments || 0 }}
+                ¥{{ formatNumber(statistics.totalIncome || 0) }}
               </div>
-              <div class="overview-card__label">待收款</div>
+              <div class="overview-card__label">总收入</div>
             </div>
           </van-grid-item>
         </van-grid>
       </div>
 
       <!-- 房屋列表 -->
-      <div class="section-title">房屋状态</div>
-      <div class="house-list">
-        <div
-          class="card"
-          v-for="house in houses"
-          :key="house.id"
-          @click="showHouseDetail(house)"
-        >
-          <van-cell :title="house.title" :label="house.address" is-link>
+      <div class="house-list-section">
+        <div class="section-header">
+          <span class="section-title">房屋状态</span>
+          <van-button
+            size="small"
+            type="primary"
+            plain
+            icon="plus"
+            to="/houses"
+          >
+            管理房源
+          </van-button>
+        </div>
+        <div class="house-list">
+          <van-cell
+            v-for="house in houses"
+            :key="house.id"
+            :title="house.title"
+            :label="house.address"
+            is-link
+            @click="showHouseDetail(house)"
+          >
             <template #right-icon>
-              <van-tag :type="getStatusType(house.status)" round size="small">
+              <van-tag :type="getStatusType(house.status)">
                 {{ getStatusText(house.status) }}
               </van-tag>
             </template>
           </van-cell>
-          <div class="house-info">
-            <div class="info-item">
-              <van-icon name="cash-back-record" />
-              <span>¥{{ formatNumber(house.baseRent) }}/月</span>
-            </div>
-            <div class="info-item">
-              <van-icon name="area" />
-              <span>{{ house.area }}㎡</span>
-            </div>
-          </div>
+        </div>
+      </div>
+
+      <!-- 租客列表 -->
+      <div class="tenant-list-section">
+        <div class="section-header">
+          <span class="section-title">最近租客</span>
+          <van-button
+            size="small"
+            type="primary"
+            plain
+            icon="plus"
+            to="/tenants"
+          >
+            管理租客
+          </van-button>
+        </div>
+        <div class="tenant-list">
+          <van-cell
+            v-for="tenant in recentTenants"
+            :key="tenant.id"
+            :title="tenant.name"
+            :label="tenant.phone"
+            is-link
+            @click="showTenantDetail(tenant)"
+          >
+            <template #right-icon>
+              <span class="tenant-house">{{ tenant.house?.title || "-" }}</span>
+            </template>
+          </van-cell>
         </div>
       </div>
     </div>
-
-    <van-tabbar v-model="active" route>
-      <van-tabbar-item replace to="/" icon="home-o">首页</van-tabbar-item>
-      <van-tabbar-item replace to="/houses" icon="shop-o">房源</van-tabbar-item>
-      <van-tabbar-item replace to="/tenants" icon="friends-o"
-        >租客</van-tabbar-item
-      >
-      <van-tabbar-item replace to="/statistics" icon="chart-trending-o"
-        >统计</van-tabbar-item
-      >
-    </van-tabbar>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { showToast } from "vant";
-import { houseApi } from "../api";
-import type { House } from "../types";
+import { useRouter } from "vue-router";
+import { houseApi, statisticsApi, tenantApi } from "../api";
+import type { House, Tenant } from "../types";
 
-const active = ref(0);
+const router = useRouter();
 const houses = ref<House[]>([]);
+const recentTenants = ref<Tenant[]>([]);
 const statistics = ref({
-  totalIncome: 0,
-  monthlyIncome: 0,
   totalHouses: 0,
-  occupancyRate: 0,
-  pendingPayments: 0,
+  rentedHouses: 0,
+  availableHouses: 0,
+  occupancyRate: "0.0",
+  totalIncome: 0,
+  totalTenants: 0,
 });
 
 const formatNumber = (num: number) => {
-  return num.toLocaleString("zh-CN");
+  return num.toLocaleString("zh-CN", { minimumFractionDigits: 2 });
 };
 
-const getStatusType = (status: House["status"]) => {
-  return status === "available" ? "success" : "warning";
+const getStatusType = (status: string) => {
+  const typeMap = {
+    available: "success",
+    rented: "warning",
+    maintenance: "danger",
+  };
+  return typeMap[status] || "default";
 };
 
-const getStatusText = (status: House["status"]) => {
-  return status === "available" ? "可租" : "已租";
+const getStatusText = (status: string) => {
+  const textMap = {
+    available: "可租",
+    rented: "已租",
+    maintenance: "维护中",
+  };
+  return textMap[status] || status;
 };
 
 const showHouseDetail = (house: House) => {
-  // 实现房屋详情展示逻辑
+  router.push({
+    name: "HouseDetail",
+    params: { id: house.id.toString() },
+  });
+};
+
+const showTenantDetail = (tenant: Tenant) => {
+  router.push(`/tenants/${tenant.id}`);
 };
 
 const loadData = async () => {
   try {
-    const response = await houseApi.getHouses();
-    houses.value = response.data;
+    const [housesResponse, statsResponse, tenantsResponse] = await Promise.all([
+      houseApi.getHouses(),
+      statisticsApi.getOverview(),
+      tenantApi.getTenants(),
+    ]);
+
+    // 更新房屋状态
+    const houseList = housesResponse.data;
+    const tenants = tenantsResponse.data;
+
+    // 根据租客信息更新房屋状态
+    houseList.forEach((house) => {
+      if (house.tenants?.length > 0) {
+        house.status = "rented";
+      }
+    });
+
+    houses.value = houseList;
+    const statsData = statsResponse.data;
+    const occupancyRate = (
+      (statsData.rentedHouses / statsData.totalHouses) *
+      100
+    ).toFixed(2);
+    statsData.occupancyRate = occupancyRate;
+    statistics.value = statsData;
+    recentTenants.value = tenants.slice(0, 5);
   } catch (error) {
-    console.error("Failed to load houses:", error);
+    console.error("Failed to load data:", error);
   }
 };
 
@@ -163,58 +205,93 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.overview-cards {
-  margin: 0 16px;
+.home {
+  min-height: 100vh;
+  background: #f7f8fa;
+}
+
+.content {
+  padding: 16px;
+}
+
+.quick-actions {
+  margin-bottom: 20px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: var(--van-text-color);
+}
+
+.overview-section,
+.house-list-section,
+.tenant-list-section {
+  margin-bottom: 24px;
 }
 
 .overview-card {
-  background: var(--card-background);
   padding: 16px;
+  background: #fff;
   border-radius: 8px;
   text-align: center;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .overview-card__value {
   font-size: 20px;
   font-weight: bold;
-  color: var(--primary-color);
+  color: var(--van-primary-color);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .overview-card__label {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--van-text-color-2);
+}
+
+.house-list,
+.tenant-list {
+  background: #fff;
+  border-radius: 8px;
+}
+
+.tenant-house {
   font-size: 12px;
-  color: var(--text-color-secondary);
-  margin-top: 4px;
+  color: var(--van-text-color-2);
 }
 
-.house-list .card {
-  margin: 0 16px 12px;
+:deep(.van-grid-item__content) {
+  padding: 16px 8px;
 }
 
-.house-info {
-  display: flex;
-  padding: 8px 16px 12px;
-  border-top: 1px solid var(--border-color);
+:deep(.van-grid-item__icon) {
+  font-size: 28px;
 }
 
-:deep(.van-field__right-icon) {
-  height: 100%;
-  display: flex;
-  align-items: center;
+:deep(.van-grid-item__text) {
+  margin-top: 8px;
+  color: var(--van-text-color);
+  font-size: 14px;
 }
 
-:deep(.van-tag--round) {
-  height: 20px;
-  line-height: 18px;
-  padding: 0 8px;
-  font-size: 12px;
-}
-
-:deep(.van-cell__title) {
-  flex: 1;
-  padding-right: 12px;
-}
-
-:deep(.van-cell__value) {
-  flex: none;
+:deep(.van-tag) {
+  height: 24px;
+  padding: 0 6px;
 }
 </style>
+

@@ -7,6 +7,7 @@ import { HousesController } from './houses.controller';
 @Module({
   imports: [TypeOrmModule.forFeature([House])],
   controllers: [HousesController],
-  providers: [HousesService]
+  providers: [HousesService],
+  exports: [HousesService],
 })
 export class HousesModule {} 

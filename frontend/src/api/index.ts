@@ -1,12 +1,13 @@
 import axios, { AxiosError } from 'axios'
-import type { House, Tenant, Statistics } from '../types'
-import { showSuccessToast, showFailToast } from 'vant'
+import type { House, Tenant, Statistics, LoginResponse, UserInfo, Payment } from '../types'
+import { showNotify } from 'vant'
 
 // 定义后端响应数据的类型
 interface ApiResponse<T = any> {
   data: T;
   message?: string;
   statusCode: number;
+  errors?: string[];
 }
 
 const api = axios.create({
@@ -31,41 +32,42 @@ api.interceptors.request.use(
 // 响应拦截器
 api.interceptors.response.use(
   response => {
-    // 如果响应中包含message且不是GET请求，显示成功提示
     const method = response.config.method?.toUpperCase()
     if (response.data.message && method !== 'GET') {
-      showSuccessToast(response.data.message)
+      showNotify({ type: 'success', message: response.data.message })
     }
     return response.data
   },
   (error: AxiosError<ApiResponse>) => {
-    // 错误处理
     const response = error.response
-    const errorMsg = response?.data?.message || error.message || '请求失败'
+    const data = response?.data
 
-    // 根据状态码处理不同的错误情况
+    if (data?.errors && data.errors.length > 0) {
+      // 显示所有验证错误
+      data.errors.forEach(error => {
+        showNotify({
+          type: 'danger',
+          message: error,
+          duration: 3000
+        })
+      })
+    } else {
+      const errorMsg = data?.message || error.message || '请求失败'
+      showNotify({
+        type: 'danger',
+        message: errorMsg
+      })
+    }
+
+    // 特殊状态码处理
     switch (response?.status) {
       case 401:
-        // 未授权，清除token并跳转到登录页
         localStorage.removeItem('token')
         window.location.href = '/login'
         break
       case 403:
-        showFailToast('没有权限执行此操作')
+        showNotify({ type: 'danger', message: '没有权限执行此操作' })
         break
-      case 404:
-        showFailToast('请求的资源不存在')
-        break
-      case 422:
-        // 验证错误，显示具体的错误信息
-        if (Array.isArray(response.data.message)) {
-          showFailToast(response.data.message.join('\n'))
-        } else {
-          showFailToast(errorMsg)
-        }
-        break
-      default:
-        showFailToast(errorMsg)
     }
 
     return Promise.reject(error)
@@ -74,37 +76,49 @@ api.interceptors.response.use(
 
 // API 接口定义
 export const authApi = {
-  login: (username: string, password: string) =>
-    api.post<ApiResponse<{ token: string }>>('/auth/login', { username, password }),
+  login: (phone: string, password: string) =>
+    api.post<ApiResponse<LoginResponse>>('/auth/login', { phone, password }),
+  logout: () => api.post<ApiResponse<void>>('/auth/logout'),
+  getCurrentUser: () => 
+    api.get<ApiResponse<UserInfo>>('/auth/me')
 }
 
 export const houseApi = {
-  getHouses: () =>
-    api.get<ApiResponse<House[]>>('/houses'),
-  getHouse: (id: number) =>
-    api.get<ApiResponse<House>>(`/houses/${id}`),
-  createHouse: (house: Omit<House, 'id'>) =>
-    api.post<ApiResponse<House>>('/houses', house),
-  updateHouse: (id: number, house: Partial<House>) =>
-    api.patch<ApiResponse<House>>(`/houses/${id}`, house),
-  deleteHouse: (id: number) =>
-    api.delete<ApiResponse<void>>(`/houses/${id}`)
+  getHouses: () => api.get<House[]>('/houses'),
+  getHouse: (id: number) => api.get<House>(`/houses/${id}`),
+  createHouse: (data: Partial<House>) => api.post<House>('/houses', data),
+  updateHouse: (id: number, data: Partial<House>) => api.patch<House>(`/houses/${id}`, data),
+  deleteHouse: (id: number) => api.delete(`/houses/${id}`)
 }
 
 export const tenantApi = {
-  getTenants: () =>
-    api.get<ApiResponse<Tenant[]>>('/tenants'),
-  getTenant: (id: number) =>
-    api.get<ApiResponse<Tenant>>(`/tenants/${id}`),
-  createTenant: (tenant: Omit<Tenant, 'id'>) =>
-    api.post<ApiResponse<Tenant>>('/tenants', tenant),
-  updateTenant: (id: number, tenant: Partial<Tenant>) =>
-    api.patch<ApiResponse<Tenant>>(`/tenants/${id}`, tenant),
-  deleteTenant: (id: number) =>
-    api.delete<ApiResponse<void>>(`/tenants/${id}`)
+  getTenants: () => api.get<Tenant[]>('/tenants'),
+  getTenant: (id: number) => api.get<Tenant>(`/tenants/${id}`),
+  createTenant: (data: Partial<Tenant>) => api.post<Tenant>('/tenants', data),
+  updateTenant: (id: number, data: Partial<Tenant>) => api.patch<Tenant>(`/tenants/${id}`, data),
+  deleteTenant: (id: number) => api.delete(`/tenants/${id}`)
+}
+
+export const paymentApi = {
+  getHousePayments: (houseId: number) => api.get<Payment[]>(`/payments/house/${houseId}`),
+  createPayment: (data: Partial<Payment>) => api.post<Payment>('/payments', data),
+  getBalance: (houseId: number) => api.get<number>(`/payments/house/${houseId}/balance`),
+  getTenantPayments: (tenantId: number) => api.get<Payment[]>(`/payments/tenant/${tenantId}`),
+  getHousePaymentStatus: (houseId: number) => 
+    api.get<PaymentStatus>(`/payments/house/${houseId}/status`),
 }
 
 export const statisticsApi = {
-  getStatistics: () =>
-    api.get<ApiResponse<Statistics>>('/statistics')
+  getOverview: () => api.get<Statistics>('/statistics/overview'),
+  getMonthlyStats: () => api.get<Statistics>('/statistics/monthly')
 }
+
+// 添加类型定义
+interface PaymentStatus {
+  status: 'paid' | 'unpaid' | 'no_tenant';
+  amount: number;
+  lastPaymentDate: string | null;
+  monthsDiff: number;
+}
+
+export default api
