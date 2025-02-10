@@ -55,7 +55,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { useUserStore } from "../stores/user";
 import { useRouter, useRoute } from "vue-router";
 import { showToast, showFailToast } from "vant";
@@ -69,25 +69,43 @@ const router = useRouter();
 const route = useRoute();
 
 const onSubmit = async () => {
-  loading.value = true;
   try {
-    const { data } = await authApi.login(phone.value, password.value);
-    userStore.setToken(data.token);
-    userStore.setUserInfo(data.user);
-
-    showToast({
-      message: "登录成功",
-      type: "success",
-    });
-
-    const redirectPath = (route.query.redirect as string) || "/";
-    router.replace(redirectPath);
-  } catch (error: any) {
-    showFailToast(error.response?.data?.message || "登录失败");
+    loading.value = true;
+    const response = await authApi.login(phone.value, password.value);
+    
+    console.log('Login response:', response); // 调试日志
+    
+    if (response.data?.token) {
+      // 确保按正确顺序设置状态
+      await userStore.setToken(response.data.token);
+      await userStore.setUserInfo(response.data.user);
+      
+      console.log('Store after login:', { 
+        token: userStore.token,
+        user: userStore.userInfo 
+      }); // 调试日志
+      
+      // 获取重定向地址
+      const redirect = route.query.redirect as string;
+      await router.push(redirect || '/');
+      
+      showToast({ type: 'success', message: '登录成功' });
+    } else {
+      throw new Error('登录响应中没有token');
+    }
+  } catch (error) {
+    console.error('Login failed:', error);
+    showFailToast(error.response?.data?.message || '登录失败');
   } finally {
     loading.value = false;
   }
 };
+
+onMounted(() => {
+  if (userStore.token) {
+    router.push('/');
+  }
+});
 </script>
 
 <style scoped>

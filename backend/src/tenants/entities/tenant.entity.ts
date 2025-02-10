@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToOne, OneToMany, JoinColumn } from 'typeorm';
 import { House } from '../../houses/entities/house.entity';
 import { Payment } from '../../payments/entities/payment.entity';
 
@@ -10,27 +10,45 @@ export class Tenant {
   @Column()
   name: string;
 
-  @Column({ unique: true })
+  @Column()
   phone: string;
+
+  @Column({ nullable: true })
+  idCard: string;
 
   @Column({ nullable: true })
   email: string;
 
   @Column({ nullable: true })
-  idCard: string;
+  emergencyContact: string;
 
-  @Column({ type: 'timestamp' })
-  startDate: Date;
+  @Column({ nullable: true })
+  emergencyPhone: string;
 
-  @Column({ type: 'timestamp', nullable: true })
-  endDate: Date;
-
-  @CreateDateColumn()
-  createdAt: Date;
-
-  @ManyToOne(() => House, house => house.tenants)
+  @OneToOne(() => House, house => house.tenant)
   house: House;
+
+  @Column({ nullable: true })
+  houseId: number;
+
+  @Column({ 
+    type: 'datetime',
+    nullable: true 
+  })
+  startDate: Date;  // 入住时间
+
+  @Column({ 
+    type: 'datetime',
+    nullable: true 
+  })
+  endDate: Date;    // 预计退租时间
 
   @OneToMany(() => Payment, payment => payment.tenant)
   payments: Payment[];
+
+  @Column({ 
+    type: 'datetime',
+    default: () => 'CURRENT_TIMESTAMP'
+  })
+  createdAt: Date;
 } 

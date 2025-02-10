@@ -1,16 +1,19 @@
-import { createApp } from 'vue'
-import { createPinia } from 'pinia'
-import router from './router'
-import App from './App.vue'
-import 'vant/lib/index.css'
-import './styles/global.css'
-import CommonNavBar from './components/CommonNavBar.vue'
+import { createApp } from "vue";
+import { createPinia } from "pinia";
+import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
+import App from "./App.vue";
+import router from "./router";
+import "vant/lib/index.css";
+import "./styles/global.css";
+import CommonNavBar from "./components/CommonNavBar.vue";
 
-const app = createApp(App)
-app.component('CommonNavBar', CommonNavBar)
-const pinia = createPinia()
+const pinia = createPinia();
+pinia.use(piniaPluginPersistedstate);
 
-app.use(pinia)
-app.use(router)
+const app = createApp(App);
+app.component("CommonNavBar", CommonNavBar);
 
-app.mount('#app')
+app.use(pinia);
+app.use(router);
+
+app.mount("#app");

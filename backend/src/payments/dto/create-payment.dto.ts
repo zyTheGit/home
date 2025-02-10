@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber, IsString, IsOptional, IsDateString } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsString, IsOptional, IsDateString, IsDate } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreatePaymentDto {
@@ -6,10 +6,6 @@ export class CreatePaymentDto {
   @IsNumber()
   @Type(() => Number)
   amount: number;
-
-  @IsNotEmpty()
-  @IsDateString()  // 改用 IsDateString 验证器
-  date: string;
 
   @IsOptional()
   @IsString()
@@ -33,10 +29,22 @@ export class CreatePaymentDto {
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
-  totalAmount?: number;
+  otherAmount?: number;
 
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
-  otherAmount?: number;
+  baseRent?: number;
+
+  @IsNumber()
+  @IsOptional()
+  tenantId?: number;
+
+  @IsDate()
+  @IsOptional()
+  startDate?: Date;
+
+  @IsDate()
+  @IsOptional()
+  endDate?: Date;
 }

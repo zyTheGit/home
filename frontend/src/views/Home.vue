@@ -1,6 +1,12 @@
 <template>
   <div class="home">
-    <van-nav-bar title="首页" />
+    <van-nav-bar
+      title="首页"
+      @click-left="handleBack"
+      right-text="退出"
+      @click-right="handleLogout"
+    >
+    </van-nav-bar>
 
     <div class="content">
       <!-- 快捷操作 -->
@@ -119,8 +125,11 @@
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { houseApi, statisticsApi, tenantApi } from "../api";
+import { useUserStore } from "../stores/user";
 import type { House, Tenant } from "../types";
+import { showConfirmDialog, showDialog } from "vant";
 
+const userStore = useUserStore();
 const router = useRouter();
 const houses = ref<House[]>([]);
 const recentTenants = ref<Tenant[]>([]);
@@ -132,6 +141,23 @@ const statistics = ref({
   totalIncome: 0,
   totalTenants: 0,
 });
+
+const handleBack = () => {
+  router.back();
+};
+
+const handleLogout = () => {
+  showConfirmDialog({
+    title: "退出登录",
+    message: "确定要退出登录吗？",
+    showCancelButton: true,
+  })
+    .then(() => {
+      userStore.clearUserInfo();
+      router.push("/login");
+    })
+    .catch(() => {});
+};
 
 const formatNumber = (num: number) => {
   return num.toLocaleString("zh-CN", { minimumFractionDigits: 2 });
@@ -156,10 +182,7 @@ const getStatusText = (status: string) => {
 };
 
 const showHouseDetail = (house: House) => {
-  router.push({
-    name: "HouseDetail",
-    params: { id: house.id.toString() },
-  });
+  router.push(`/houses/${house.id}`);
 };
 
 const showTenantDetail = (tenant: Tenant) => {
@@ -188,8 +211,9 @@ const loadData = async () => {
     houses.value = houseList;
     const statsData = statsResponse.data;
     const occupancyRate = (
-      (statsData.rentedHouses / statsData.totalHouses) *
-      100
+      (statsData.totalHouses === 0
+        ? 0
+        : statsData.rentedHouses / statsData.totalHouses) * 100
     ).toFixed(2);
     statsData.occupancyRate = occupancyRate;
     statistics.value = statsData;
@@ -294,4 +318,3 @@ onMounted(() => {
   padding: 0 6px;
 }
 </style>
-

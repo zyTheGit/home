@@ -15,10 +15,6 @@ const statistics = ref<Statistics>({
   monthlyTrend: []
 })
 
-const formatNumber = (num: number) => {
-  return num.toLocaleString('zh-CN')
-}
-
 const loadData = async () => {
   loading.value = true
   try {

@@ -1,6 +1,11 @@
 <template>
   <div class="houses-container">
-    <van-nav-bar title="房源管理" />
+    <van-nav-bar
+      title="房源管理"
+      left-text="返回"
+      left-arrow
+      @click-left="handleBack"
+    />
 
     <div class="content-wrapper">
       <van-button
@@ -169,6 +174,24 @@
             <template #right-icon>㎡</template>
           </van-field>
           <van-field
+            v-model="formData.initialWaterReading"
+            label="初始水表读数"
+            type="number"
+            required
+            placeholder="请输入初始水表读数"
+          >
+            <template #right-icon>吨</template>
+          </van-field>
+          <van-field
+            v-model="formData.initialElectricityReading"
+            label="初始电表读数"
+            type="number"
+            required
+            placeholder="请输入初始电表读数"
+          >
+            <template #right-icon>度</template>
+          </van-field>
+          <van-field
             v-model="statusText"
             label="状态"
             placeholder="请选择状态"
@@ -208,11 +231,13 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from "vue";
+import { useRouter } from "vue-router";
 import { showConfirmDialog, showNotify } from "vant";
 import { houseApi } from "../api";
 import type { House } from "../types";
 import { useUserStore } from "../stores/user";
 
+const router = useRouter();
 const userStore = useUserStore();
 const houses = ref<House[]>([]);
 const loading = ref(false);
@@ -231,6 +256,8 @@ const formDataDefault = {
   status: "available",
   description: "",
   amenities: [] as string[],
+  initialWaterReading: 0,
+  initialElectricityReading: 0,
 };
 
 const formData = reactive({ ...formDataDefault });
@@ -260,6 +287,10 @@ const getStatusType = (status: string) => {
   }
 };
 
+const handleBack = () => {
+  router.back();
+};
+
 const loadData = async () => {
   try {
     const { data } = await houseApi.getHouses();
@@ -280,6 +311,8 @@ const onSubmit = async () => {
       waterRate: Number(formData.waterRate),
       electricityRate: Number(formData.electricityRate),
       area: Number(formData.area),
+      initialWaterReading: Number(formData.initialWaterReading || 0),
+      initialElectricityReading: Number(formData.initialElectricityReading || 0),
       amenities:
         formData.amenities instanceof Array
           ? formData.amenities
@@ -344,7 +377,7 @@ const onCancel = () => {
 };
 
 // 控制编辑和删除按钮的显示
-const showManageButtons = computed(() => userStore.isAdmin());
+const showManageButtons = computed(() => userStore.isAdmin);
 
 // 新增状态文本的计算属性
 const statusText = computed(() => {

@@ -1,38 +1,47 @@
-import { defineStore } from 'pinia'
-import { ref } from 'vue'
-import type { UserInfo } from '../types'
+import { defineStore } from 'pinia';
 
-export const useUserStore = defineStore('user', () => {
-  const token = ref<string | null>(localStorage.getItem('token'))
-  const userInfo = ref<UserInfo | null>(
-    localStorage.getItem('userInfo') ? JSON.parse(localStorage.getItem('userInfo')!) : null
-  )
+interface UserState {
+  token: string;
+  userInfo: {
+    id: number;
+    username: string;
+    role: 'admin' | 'user';
+  } | null;
+}
 
-  const setToken = (newToken: string) => {
-    token.value = newToken
-    localStorage.setItem('token', newToken)
+export const useUserStore = defineStore('user', {
+  state: (): UserState => ({
+    token: '',
+    userInfo: null
+  }),
+
+  getters: {
+    isAdmin: (state) => state.userInfo?.role === 'admin',
+    isLoggedIn: (state) => !!state.token
+  },
+
+  actions: {
+    setToken(token: string) {
+      this.token = token;
+      localStorage.setItem('token', token);
+      console.log('Token set:', this.token); // 调试日志
+    },
+
+    setUserInfo(userInfo: UserState['userInfo']) {
+      this.userInfo = userInfo;
+      console.log('UserInfo set:', this.userInfo); // 调试日志
+    },
+
+    clearUserInfo() {
+      console.log('Clearing user info'); // 调试日志
+      this.token = '';
+      this.userInfo = null;
+      localStorage.removeItem('token');
+    }
+  },
+
+  persist: {
+    key: 'user-store',
+    storage: localStorage
   }
-
-  const setUserInfo = (info: UserInfo) => {
-    userInfo.value = info
-    localStorage.setItem('userInfo', JSON.stringify(info))
-  }
-
-  const clearUser = () => {
-    token.value = null
-    userInfo.value = null
-    localStorage.removeItem('token')
-    localStorage.removeItem('userInfo')
-  }
-
-  const isAdmin = () => userInfo.value?.role === 'admin'
-
-  return {
-    token,
-    userInfo,
-    setToken,
-    setUserInfo,
-    clearUser,
-    isAdmin
-  }
-}) 
+});

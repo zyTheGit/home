@@ -70,3 +70,6 @@ body {
   background: linear-gradient(to right, #1989fa, #39a0ff);
 }
 
+.van-nav-bar__text,.van-nav-bar .van-icon{
+  color:#323233
+}

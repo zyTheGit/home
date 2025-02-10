@@ -38,12 +38,15 @@ export class House {
   @Column('simple-array')
   amenities: string[];  // 房屋设施
 
-  @OneToOne(() => Tenant)
+  @Column('decimal', { precision: 10, scale: 2, default: 0 })
+  initialWaterReading: number;  // 初始水表读数
+
+  @Column('decimal', { precision: 10, scale: 2, default: 0 })
+  initialElectricityReading: number;  // 初始电表读数
+
+  @OneToOne(() => Tenant, tenant => tenant.house)
   @JoinColumn()
   tenant: Tenant;
-
-  @OneToMany(() => Tenant, tenant => tenant.house)
-  tenants: Tenant[];
 
   @OneToMany(() => Payment, payment => payment.house)
   payments: Payment[];

@@ -28,10 +28,17 @@ export class TenantsService {
       throw new BadRequestException('该房屋已被租用或不可租');
     }
 
+    // 处理日期格式
+    const tenantData = {
+      ...createTenantDto,
+      startDate: new Date(createTenantDto.startDate),  // 将字符串转换为 Date 对象
+      endDate: createTenantDto.endDate ? new Date(createTenantDto.endDate) : null  // 处理可选的 endDate
+    };
+
     // 更新房屋状态为已租
     await this.houseRepository.update(house.id, { status: 'rented' });
 
-    const tenant = this.tenantsRepository.create(createTenantDto);
+    const tenant = this.tenantsRepository.create(tenantData);
     tenant.house = house;
 
     // 保存租客信息
@@ -57,9 +64,12 @@ export class TenantsService {
 
       // 如果更换了房屋
       if (updateTenantDto.houseId && updateTenantDto.houseId !== tenant.house?.id) {
-        // 将原房屋状态改为可租
+        // 将原房屋状态改为可租，并清除租户关系
         if (tenant.house) {
-          await this.houseRepository.update(tenant.house.id, { status: 'available' });
+          await this.houseRepository.update(tenant.house.id, { 
+            status: 'available',
+            tenant: null  // 清除原房屋的租户关系
+          });
         }
 
         // 查找新房屋
@@ -71,8 +81,11 @@ export class TenantsService {
           throw new BadRequestException('新房屋不存在');
         }
 
-        // 更新新房屋状态为已租
-        await this.houseRepository.update(newHouse.id, { status: 'rented' });
+        // 更新新房屋状态和租户关系
+        await this.houseRepository.update(newHouse.id, { 
+          status: 'rented',
+          tenant: tenant  // 建立新房屋和租户的关系
+        });
       }
 
       // 更新租客信息

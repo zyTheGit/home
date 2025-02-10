@@ -1,7 +1,10 @@
 <template>
-  <div class="tenants page-container">
+  <div class="tenants">
     <!-- 替换原有的 van-nav-bar -->
-    <van-nav-bar title="租客管理" />
+    <van-nav-bar title="租客管理" 
+      left-text="返回"
+      left-arrow
+      @click-left="handleBack" />
 
     <div class="content-wrapper">
       <van-button
@@ -81,7 +84,7 @@
       <!-- 添加/编辑租客弹窗 -->
       <van-dialog
         v-model:show="showAddDialog"
-        :title="currentTenant ? '编辑租客' : '添加租客'"
+        :title="currentTenant ? '编辑租客' : '添加租客'"  
         show-cancel-button
         :before-close="handleDialogClose"
         class="custom-dialog"
@@ -201,12 +204,14 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch } from "vue";
+import { useRouter } from "vue-router";
 import dayjs from "dayjs";
 import { showConfirmDialog, showNotify } from "vant";
 import { tenantApi, houseApi } from "../api";
 import type { Tenant, House } from "../types";
 import { dateUtils } from '../utils/date';
 
+const router = useRouter();
 const tenants = ref<Tenant[]>([]);
 const showAddDialog = ref(false);
 const showHouseSelector = ref(false);
@@ -228,6 +233,10 @@ const formData = reactive({
 const showPicker = ref(false);
 const dateFieldKey = ref("");
 const pickerValue = ref([]);
+
+const handleBack = () => {
+  router.back();
+};
 
 const loadTenants = async () => {
   try {

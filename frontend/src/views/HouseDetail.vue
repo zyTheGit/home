@@ -2,9 +2,11 @@
   <div class="house-detail">
     <van-nav-bar
       title="房屋详情"
-      left-text="返回"
-      left-arrow
+      :left-text="isAdmin ? '返回' : ''"
+      :left-arrow="isAdmin ? true : false"
       @click-left="handleBack"
+      :right-text="!isAdmin ? '退出' : ''"
+      @click-right="handleLogout"
     />
 
     <div class="content">
@@ -33,9 +35,11 @@
         <van-cell title="状态">
           <template #default>
             <van-tag
+              v-if="house.status === 'rented'"
               :type="paymentStatus.status === 'paid' ? 'success' : 'danger'"
             >
               {{ paymentStatus.status === "paid" ? "已缴费" : "欠费" }}
+
             </van-tag>
           </template>
         </van-cell>
@@ -55,161 +59,311 @@
       </van-cell-group>
 
       <!-- 缴费记录 -->
-      <van-cell-group inset title="缴费记录" class="payment-section">
-        <van-button
-          type="primary"
-          size="small"
-          @click="showAddPayment = true"
-          class="add-payment-btn"
-        >
-          添加缴费记录
-        </van-button>
+      <van-cell-group inset title="缴费记录">
+        <!-- 添加缴费按钮 - 仅管理员可见 -->
+        <div v-if="shouldShowPaymentButton(house.status, paymentStatus.status)" class="add-payment-section">
+          <van-button
+            type="primary"
+            size="small"
+            @click="openAddPayment"
+            class="add-payment-btn"
+          >
+            添加缴费记录
+          </van-button>
+        </div>
 
-        <div class="payment-list">
-          <van-cell
+        <!-- 缴费记录列表 -->
+        <template v-if="payments.length > 0">
+          <div
+            class="payment-card"
             v-for="payment in payments"
             :key="payment.id"
-            :title="getPayTypeText(payment.type)"
-            :label="formatDate(payment.date)"
           >
-            <template #value>
-              <span :class="{ income: true }"
-                >+¥{{ formatNumber(payment.amount) }}</span
+            <div class="payment-header">
+              <span class="payment-date">{{
+                formatDate(payment.createdAt)
+              }}</span>
+              <span
+                :class="[
+                  'payment-status',
+                  payment.balance >= 0 ? 'paid' : 'unpaid',
+                ]"
               >
-            </template>
-            <template #label>
-              <div class="payment-info">
-                <span>{{ formatDate(payment.date) }}</span>
-                <span v-if="payment.remark" class="payment-remark">{{
-                  payment.remark
-                }}</span>
+                {{ payment.balance >= 0 ? "已结清" : "欠费" }}
+              </span>
+            </div>
+
+            <div class="payment-body">
+              <div class="fee-details">
+                <div class="fee-item" v-if="payment.waterUsage">
+                  <span>水费</span>
+                  <span
+                    >¥{{
+                      calculateMoney.multiply(
+                        calculateMoney.subtract(
+                          payment.waterUsage,
+                          lastWaterUsage
+                        ),
+                        house.waterRate
+                      )
+                    }}</span
+                  >
+                </div>
+
+                <div class="fee-item" v-if="payment.electricityUsage">
+                  <span>电费</span>
+                  <span
+                    >¥{{
+                      calculateMoney.multiply(
+                        calculateMoney.subtract(
+                          payment.electricityUsage,
+                          lastElectricityUsage
+                        ),
+                        house.electricityRate
+                      )
+                    }}</span
+                  >
+                </div>
+
+                <div class="fee-item" v-if="payment.otherAmount">
+                  <span>其他费用</span>
+                  <span>¥{{ calculateMoney.format(payment.otherAmount) }}</span>
+                </div>
+
+                <div class="fee-item">
+                  <span>房租</span>
+                  <span>¥{{ calculateMoney.format(house.baseRent) }}</span>
+                </div>
+
+                <div class="fee-item" v-if="payment?.balance">
+                  <span>{{
+                    payment.balance > 0 ? "上次结余" : "上次欠费"
+                  }}</span>
+                  <span
+                    :class="payment.balance > 0 ? 'positive' : 'negative'"
+                  >
+                    {{ payment.balance > 0 ? "-" : "+" }}
+                    ¥{{ calculateMoney.format(Math.abs(payment.balance)) }}
+                  </span>
+                </div>
+
+                <div class="fee-item total">
+                  <span>应缴总额</span>
+                  <span>¥{{ calculateTotalAmount }}</span>
+                </div>
+
+                <div class="fee-item total">
+                  <span>实收总额</span>
+                  <span>¥{{ payment.amount }}</span>
+                </div>
               </div>
-            </template>
-          </van-cell>
-        </div>
+
+
+              <div class="payment-item balance">
+                <span class="label">结余</span>
+                <span
+                  :class="[
+                    'amount',
+                    payment.balance >= 0 ? 'positive' : 'negative',
+                  ]"
+                >
+                  ¥{{ formatNumber(Math.abs(payment.balance)) }}
+                  {{ payment.balance >= 0 ? "结余" : "欠费" }}
+                </span>
+              </div>
+            </div>
+
+            <div class="payment-footer" v-if="payment.remark">
+              <span class="remark-label">备注：</span>
+              <span class="remark-content">{{ payment.remark }}</span>
+            </div>
+          </div>
+        </template>
+        <van-empty v-else description="暂无缴费记录" />
       </van-cell-group>
     </div>
 
-    <!-- 添加缴费记录弹窗 -->
+    <!-- 添加缴费弹窗 -->
     <van-dialog
+      v-if="isAdmin"
       v-model:show="showAddPayment"
       title="添加缴费记录"
-      show-cancel-button
+      :show-cancel-button="true"
       @confirm="handleAddPayment"
     >
       <van-form @submit.prevent>
-        <van-cell-group>
-          <!-- 上次应缴费用 -->
-          <van-cell
-            title="上次应缴费用"
-            :value="`¥${formatNumber(lastMonthFees)}`"
-          />
-
+        <van-cell-group inset>
           <!-- 水费输入 -->
-          <van-cell-group inset title="水费">
-            <van-field
-              v-model="paymentForm.waterUsage"
-              type="number"
-              label="本次读数"
-              required
-              placeholder="请输入水表读数"
-            >
-              <template #extra>
-                <span class="usage-info">上次读数：{{ lastWaterUsage }}</span>
-              </template>
-            </van-field>
-            <van-cell
-              title="水费金额"
-              :value="`¥${formatNumber(calculateWaterFee())}`"
-            />
-          </van-cell-group>
+          <van-field
+            v-model="paymentForm.waterUsage"
+            type="number"
+            label="水表读数"
+            placeholder="请输入水表读数"
+          >
+            <template #extra>
+              <div class="usage-info">
+                <span>上次：{{ lastWaterUsage }}</span>
+                <span v-if="paymentForm.waterUsage">
+                  用量：{{
+                    calculateMoney.subtract(
+                      paymentForm.waterUsage,
+                      lastWaterUsage
+                    )
+                  }}吨
+                </span>
+              </div>
+            </template>
+          </van-field>
 
           <!-- 电费输入 -->
-          <van-cell-group inset title="电费">
-            <van-field
-              v-model="paymentForm.electricityUsage"
-              type="number"
-              label="本次读数"
-              required
-              placeholder="请输入电表读数"
-            >
-              <template #extra>
-                <span class="usage-info"
-                  >上次读数：{{ lastElectricityUsage }}</span
-                >
-              </template>
-            </van-field>
-            <van-cell
-              title="电费金额"
-              :value="`¥${formatNumber(calculateElectricityFee())}`"
-            />
-          </van-cell-group>
+          <van-field
+            v-model="paymentForm.electricityUsage"
+            type="number"
+            label="电表读数"
+            placeholder="请输入电表读数"
+          >
+            <template #extra>
+              <div class="usage-info">
+                <span>上次：{{ lastElectricityUsage }}</span>
+                <span v-if="paymentForm.electricityUsage">
+                  用量：{{
+                    calculateMoney.subtract(
+                      paymentForm.electricityUsage,
+                      lastElectricityUsage
+                    )
+                  }}度
+                </span>
+              </div>
+            </template>
+          </van-field>
 
           <!-- 其他费用 -->
           <van-field
             v-model="paymentForm.otherAmount"
             type="number"
             label="其他费用"
-            placeholder="请输入其他费用金额"
+            placeholder="请输入其他费用"
           />
 
-          <!-- 本月应缴总额 -->
-          <van-cell title="本月应缴总额">
-            <template #value>
-              <span class="amount"
-                >¥{{ formatNumber(calculateTotalAmount()) }}</span
-              >
-            </template>
-          </van-cell>
+          <!-- 房租金额 -->
+          <van-field
+            v-model="paymentForm.baseRent"
+            type="number"
+            label="房租金额"
+            :placeholder="`默认金额：${house.value?.baseRent || 0}`"
+          />
 
-          <!-- 实际缴费金额 -->
+          <!-- 费用明细 -->
+          <div class="fee-details">
+            <!-- 水费明细 -->
+            <div class="fee-item" v-if="paymentForm.waterUsage">
+              <span>水费</span>
+              <div class="fee-detail">
+                <span class="usage"
+                  >用量：{{
+                    calculateMoney.subtract(
+                      paymentForm.waterUsage,
+                      lastWaterUsage
+                    )
+                  }}吨</span
+                >
+                <span>¥{{ calculateWaterFee }}</span>
+              </div>
+            </div>
+
+            <!-- 电费明细 -->
+            <div class="fee-item" v-if="paymentForm.electricityUsage">
+              <span>电费</span>
+              <div class="fee-detail">
+                <span class="usage"
+                  >用量：{{
+                    calculateMoney.subtract(
+                      paymentForm.electricityUsage,
+                      lastElectricityUsage
+                    )
+                  }}度</span
+                >
+                <span>¥{{ calculateElectricityFee }}</span>
+              </div>
+            </div>
+
+            <!-- 其他费用 -->
+            <div class="fee-item" v-if="paymentForm.otherAmount">
+              <span>其他费用</span>
+              <span>¥{{ calculateMoney.format(paymentForm.otherAmount) }}</span>
+            </div>
+
+            <!-- 房租 -->
+            <div class="fee-item">
+              <span>房租</span>
+              <span>¥{{ calculateActualRent }}</span>
+            </div>
+
+            <!-- 上次欠费 -->
+            <div class="fee-item" v-if="lastPayment?.balance < 0">
+              <span>上次欠费</span>
+              <span class="negative"
+                >¥{{
+                  calculateMoney.format(Math.abs(lastPayment.balance))
+                }}</span
+              >
+            </div>
+
+            <!-- 应缴总额 -->
+            <div class="fee-item total">
+              <span>应缴总额</span>
+              <span>¥{{ calculateTotalAmount }}</span>
+            </div>
+
+            <!-- 实收金额 -->
+            <div class="fee-item" v-if="paymentForm.actualAmount">
+              <span>实收金额</span>
+              <span class="positive"
+                >¥{{ calculateMoney.format(paymentForm.actualAmount) }}</span
+              >
+            </div>
+
+            <!-- 本次结余/欠费 -->
+            <div class="fee-item balance" v-if="paymentForm.actualAmount">
+              <span>{{ calculateBalance >= 0 ? "本次结余" : "本次欠费" }}</span>
+              <span :class="calculateBalance >= 0 ? 'positive' : 'negative'">
+                ¥{{ calculateMoney.format(Math.abs(calculateBalance)) }}
+              </span>
+            </div>
+          </div>
+
+          <!-- 实收金额 -->
           <van-field
             v-model="paymentForm.actualAmount"
             type="number"
-            label="实际缴费金额"
+            label="实收金额"
+            placeholder="请输入实际收款金额"
             required
-            placeholder="请输入实际缴费金额"
           />
 
-          <van-field
-            v-model="paymentForm.date"
-            label="缴费日期"
-            type="datetime-local"
-            placeholder="请选择日期和时间"
-          />
-
+          <!-- 备注 -->
           <van-field
             v-model="paymentForm.remark"
             label="备注"
             type="textarea"
-            placeholder="请输入备注"
+            placeholder="请输入备注信息"
             rows="2"
           />
         </van-cell-group>
       </van-form>
     </van-dialog>
-
-    <!-- 缴费类型选择器 -->
-    <van-popup v-model:show="showTypeSelector" position="bottom" round>
-      <van-picker
-        :columns="paymentTypes"
-        @confirm="onTypeSelect"
-        @cancel="showTypeSelector = false"
-        show-toolbar
-      />
-    </van-popup>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from "vue";
-
+import { ref, reactive, onMounted, computed } from "vue";
 import dayjs from "dayjs";
 import { useRouter, useRoute } from "vue-router";
-import { showNotify } from "vant";
+import { showDialog, showNotify } from "vant";
 import { houseApi, paymentApi, tenantApi } from "../api";
 import { calculateMoney } from "../utils/decimal";
 import { dateUtils } from "../utils/date";
+import { useUserStore } from "../stores/user";
 import type { House, Payment } from "../types";
 
 const router = useRouter();
@@ -217,27 +371,17 @@ const route = useRoute();
 const house = ref<House>({} as House);
 const payments = ref<Payment[]>([]);
 const showAddPayment = ref(false);
-const showTypeSelector = ref(false);
-
-const paymentTypes = [
-  { text: "房租", value: "rent" },
-  { text: "水费", value: "water" },
-  { text: "电费", value: "electricity" },
-  { text: "预存", value: "deposit" },
-  { text: "其他", value: "other" },
-];
-
 const paymentForm = reactive({
   waterUsage: "",
   electricityUsage: "",
   otherAmount: "",
   actualAmount: "",
+  baseRent: 0,
   date: dayjs().format("YYYY-MM-DDTHH:mm"),
   remark: "",
 });
 
 const balance = ref(0);
-const selectedTypes = ref<string[]>([]);
 const lastWaterUsage = ref(0);
 const lastElectricityUsage = ref(0);
 
@@ -248,36 +392,70 @@ const paymentStatus = ref({
   monthsDiff: 0,
 });
 
-const lastMonthFees = ref(0);
+const userStore = useUserStore();
+const isAdmin = computed(() => userStore.isAdmin);
+const isOwner = computed(() => {
+  return house.value?.userId === userStore.userInfo?.id;
+});
 
-const getPayTypeText = (type: string) =>
-  paymentTypes.find((i) => i.value === type)?.text;
+const lastPayment = computed(() => payments.value[0] || null);
 
-const calculateWaterFee = () => {
-  if (!paymentForm.waterUsage) return 0;
-  const waterUsed = Number(paymentForm.waterUsage) - lastWaterUsage.value;
-  return calculateMoney.multiply(waterUsed, house.value.waterRate);
-};
+const tenant = ref(null);
 
-const calculateElectricityFee = () => {
-  if (!paymentForm.electricityUsage) return 0;
-  const electricityUsed =
-    Number(paymentForm.electricityUsage) - lastElectricityUsage.value;
-  return calculateMoney.multiply(electricityUsed, house.value.electricityRate);
-};
-
-const calculateTotalAmount = () => {
-  const waterFee = calculateWaterFee();
-  const electricityFee = calculateElectricityFee();
-  const otherFee = calculateMoney.format(paymentForm.otherAmount || 0);
-  const baseRent = calculateMoney.format(house.value.baseRent || 0);
-
-  return calculateMoney.add(
-    calculateMoney.add(waterFee, electricityFee),
-    calculateMoney.add(otherFee, baseRent)
+const calculateWaterFee = computed(() => {
+  if (!paymentForm.waterUsage) return "0.00";
+  const waterUsed = calculateMoney.subtract(
+    paymentForm.waterUsage,
+    lastWaterUsage.value
   );
-};
-const getStatusType = (status: string) => {
+  return calculateMoney.multiply(waterUsed, house.value.waterRate);
+});
+
+const calculateElectricityFee = computed(() => {
+  if (!paymentForm.electricityUsage) return "0.00";
+  const electricityUsed = calculateMoney.subtract(
+    paymentForm.electricityUsage,
+    lastElectricityUsage.value
+  );
+  return calculateMoney.multiply(electricityUsed, house.value.electricityRate);
+});
+
+const calculateTotalAmount = computed(() => {
+  let total = "0";
+
+  // 添加水费
+  total = calculateMoney.add(total, calculateWaterFee.value);
+
+  // 添加电费
+  total = calculateMoney.add(total, calculateElectricityFee.value);
+
+  // 添加其他费用
+  if (paymentForm.otherAmount) {
+    total = calculateMoney.add(total, paymentForm.otherAmount);
+  }
+
+  // 添加房租
+  total = calculateMoney.add(total, house.value.baseRent);
+
+  // 添加上次欠费
+  if (lastPayment.value?.balance < 0) {
+    total = calculateMoney.add(total, Math.abs(lastPayment.value.balance));
+  }
+
+  return total;
+});
+
+const calculateBalance = computed(() => {
+  if (!paymentForm.actualAmount) return '0';
+
+  // 实收金额减去应缴总额
+  return calculateMoney.subtract(
+    paymentForm.actualAmount,
+    calculateTotalAmount.value
+  );
+});
+
+const getStatusType = (status: 'available' | 'rented' | 'maintenance') => {
   const typeMap = {
     available: "success",
     rented: "warning",
@@ -286,7 +464,7 @@ const getStatusType = (status: string) => {
   return typeMap[status] || "default";
 };
 
-const getStatusText = (status: string) => {
+const getStatusText = (status: 'available' | 'rented' | 'maintenance') => {
   const textMap = {
     available: "可租",
     rented: "已租",
@@ -299,46 +477,44 @@ const formatNumber = (num: number) => {
   return num?.toLocaleString("zh-CN", { minimumFractionDigits: 2 });
 };
 const formatDate = (date: string) => {
-  return dateUtils.formatDateTime(date);
+  return dateUtils.format(date);
 };
 const handleBack = () => {
   router.back();
 };
 
-const onTypeSelect = (value: { text: string; selectedValues: string[] }) => {
-  selectedTypes.value = value.selectedValues;
-  showTypeSelector.value = false;
-
-  // 重置表单相关字段
-  paymentForm.amount = "";
-  paymentForm.currentUsage = "";
-
-  // 如果是水费或电费，加载上次读数
-  if (value.value === "water" || value.value === "electricity") {
-    loadLastUsage();
-  }
-};
-
 const loadLastUsage = async () => {
   try {
     const response = await paymentApi.getHousePayments(Number(route.params.id));
-    const lastWaterPayment = response.data.find((p) => p.type === "water");
-    const lastElectricityPayment = response.data.find(
-      (p) => p.type === "electricity"
-    );
+    const lastPayment = response.data[0]; // 获取最近一次缴费记录
 
-    lastWaterUsage.value = lastWaterPayment?.waterUsage || 0;
-    lastElectricityUsage.value = lastElectricityPayment?.electricityUsage || 0;
+    lastWaterUsage.value = lastPayment?.waterUsage || 0;
+    lastElectricityUsage.value = lastPayment?.electricityUsage || 0;
   } catch (error) {
     console.error("Failed to load last usage:", error);
   }
+};
+
+const resetForm = () => {
+  Object.assign(paymentForm, {
+    waterUsage: "",
+    electricityUsage: "",
+    otherAmount: "",
+    actualAmount: "",
+    baseRent: house.value?.baseRent || 0,
+    remark: "",
+  });
+};
+
+const openAddPayment = () => {
+  resetForm();
+  showAddPayment.value = true;
 };
 
 const handleAddPayment = async () => {
   try {
     const submitData = {
       amount: Number(paymentForm.actualAmount),
-      date: dateUtils.formatDateTime(paymentForm.date), // 使用统一的日期格式化工具
       remark: paymentForm.remark || "",
       houseId: Number(route.params.id),
       waterUsage: paymentForm.waterUsage
@@ -348,6 +524,8 @@ const handleAddPayment = async () => {
         ? Number(paymentForm.electricityUsage)
         : undefined,
       otherAmount: Number(paymentForm.otherAmount || 0),
+      baseRent: Number(paymentForm.baseRent || house.value.baseRent),
+      balance: Number(calculateBalance.value),
     };
 
     await paymentApi.createPayment(submitData);
@@ -355,16 +533,6 @@ const handleAddPayment = async () => {
     showAddPayment.value = false;
     loadPayments();
     loadBalance();
-
-    // 重置表单
-    Object.assign(paymentForm, {
-      waterUsage: "",
-      electricityUsage: "",
-      otherAmount: "",
-      actualAmount: "",
-      date: dayjs().format("YYYY-MM-DD HH:mm:ss"),
-      remark: "",
-    });
   } catch (error) {
     console.error("Failed to add payment:", error);
     showNotify({
@@ -384,19 +552,19 @@ const loadHouseDetail = async () => {
     }
 
     house.value = response.data;
+    paymentForm.baseRent = house.value.baseRent;
     await loadPayments();
 
-    // 如果房屋已租，加载租客信息和费用
-    if (house.value.status === "rented") {
-      const tenantResponse = await tenantApi.getTenantByHouse(house.value.id);
-      if (tenantResponse.data) {
-        const monthlyFees = calculateMonthlyFees();
-        if (monthlyFees > 0) {
-          showNotify({
-            type: "warning",
-            message: `当前应缴费用：¥${formatNumber(monthlyFees)}`,
-          });
-        }
+    // Load tenant data if house is rented
+    if (house.value.status === "rented" && house.value.tenant) {
+      const tenantResponse = await tenantApi.getTenant(house.value.tenant.id);
+      tenant.value = tenantResponse.data;
+      const monthlyFees = calculateMonthlyFees();
+      if (monthlyFees > 0) {
+        showNotify({
+          type: "warning",
+          message: `当前应缴费用：¥${formatNumber(monthlyFees)}`,
+        });
       }
     }
   } catch (error) {
@@ -409,7 +577,11 @@ const loadHouseDetail = async () => {
 const loadPayments = async () => {
   try {
     const houseId = Number(route.params.id);
-    const response = await paymentApi.getHousePayments(houseId);
+    
+    // 如果是普通用户，传入当前用户ID
+    const userId = isAdmin.value ? undefined : userStore.userInfo?.id;
+    const response = await paymentApi.getHousePayments(houseId, userId);
+    
     payments.value = response.data;
   } catch (error) {
     console.error("Failed to load payments:", error);
@@ -426,32 +598,28 @@ const loadBalance = async () => {
   }
 };
 
-const calculateMonthlyFees = () => {
-  if (!house.value || !tenant.value) return 0;
+const calculateMonthlyFees = (): string => {
+  if (!house.value || !tenant.value) return '0.00';
 
-  const startDate = dayjs(tenant.value.startDate);
-  const now = dayjs();
-  const monthsDiff = now.diff(startDate, "month");
-
-  let totalFees = 0;
 
   // 基础房租
-  totalFees += house.value.baseRent * monthsDiff;
+  let totalFees = calculateMoney.add(0, house.value.baseRent);
 
   // 获取上次抄表记录
   const lastPayment = payments.value[0];
   if (lastPayment) {
     // 水费
     if (lastPayment.waterUsage) {
-      const waterUsed = paymentForm.waterUsage - lastPayment.waterUsage;
-      totalFees += waterUsed * house.value.waterRate;
+      const waterUsed = calculateMoney.subtract(paymentForm.waterUsage, lastPayment.waterUsage);
+      const waterFee = calculateMoney.multiply(waterUsed, house.value.waterRate);
+      totalFees = calculateMoney.add(totalFees, waterFee);
     }
 
     // 电费
     if (lastPayment.electricityUsage) {
-      const electricityUsed =
-        paymentForm.electricityUsage - lastPayment.electricityUsage;
-      totalFees += electricityUsed * house.value.electricityRate;
+      const electricityUsed = calculateMoney.subtract(paymentForm.electricityUsage, lastPayment.electricityUsage);
+      const electricityFee = calculateMoney.multiply(electricityUsed, house.value.electricityRate);
+      totalFees = calculateMoney.add(totalFees, electricityFee);
     }
   }
 
@@ -469,11 +637,42 @@ const loadPaymentStatus = async () => {
   }
 };
 
-onMounted(() => {
-  loadHouseDetail();
-  loadBalance();
-  loadLastUsage();
-  loadPaymentStatus();
+const handleLogout = () => {
+  showDialog({
+    title: "退出登录",
+    message: "确定要退出登录吗？",
+    showCancelButton: true,
+  })
+    .then(() => {
+      userStore.clearUserInfo();
+      router.push("/login");
+    })
+    .catch(() => {});
+};
+
+// 计算实际房租
+const calculateActualRent = computed(() => {
+  if (paymentForm.baseRent) {
+    return calculateMoney.format(paymentForm.baseRent);
+  }
+
+  return calculateMoney.format(house.value?.baseRent || 0);
+});
+
+const shouldShowPaymentButton = (houseStatus: 'available' | 'rented' | 'maintenance', paymentStatus: string) => {
+  return houseStatus !== 'available' || paymentStatus === '欠费' && isAdmin.value;
+};
+
+onMounted(async () => {
+  if (!isAdmin.value && !isOwner.value) {
+    showNotify({ type: "danger", message: "无权访问" });
+    router.push("/");
+    return;
+  }
+  await loadHouseDetail();
+  await loadBalance();
+  await loadLastUsage();
+  await loadPaymentStatus();
 });
 </script>
 
@@ -552,5 +751,205 @@ onMounted(() => {
 
 :deep(.van-cell) {
   align-items: center;
+}
+
+.payment-amount {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.payment-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #999;
+  font-size: 12px;
+}
+
+.payment-remark {
+  color: #666;
+}
+
+.payment-card {
+  background: #fff;
+  border-radius: 8px;
+  margin: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.payment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.payment-date {
+  color: #666;
+  font-size: 14px;
+}
+
+.payment-status {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.payment-status.paid {
+  background: #e8f5e9;
+  color: #4caf50;
+}
+
+.payment-status.unpaid {
+  background: #ffebee;
+  color: #f44336;
+}
+
+.payment-body {
+  padding: 12px 0;
+}
+
+.payment-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.payment-item .label {
+  color: #666;
+  font-size: 14px;
+  min-width: 70px;
+}
+
+.payment-item .amount {
+  font-size: 15px;
+  font-weight: 500;
+  color: #333;
+}
+
+.usage-details {
+  text-align: right;
+  font-size: 14px;
+  color: #666;
+}
+
+.usage-details .fee {
+  color: #333;
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+.payment-item.total {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #eee;
+}
+
+.payment-item.balance {
+  margin-top: 8px;
+}
+
+.payment-item .amount.positive {
+  color: #4caf50;
+}
+
+.payment-item .amount.negative {
+  color: #f44336;
+}
+
+.payment-footer {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f5f5f5;
+  font-size: 14px;
+}
+
+.remark-label {
+  color: #999;
+}
+
+.remark-content {
+  color: #666;
+}
+
+.add-payment-section {
+  position: relative;
+  padding: 12px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.add-payment-btn {
+  margin-right: 16px;
+}
+
+.usage-info {
+  font-size: 12px;
+  color: #666;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.fee-details {
+  margin: 12px 16px;
+  padding: 12px;
+  background: #f7f8fa;
+  border-radius: 8px;
+}
+
+.fee-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #666;
+}
+
+.fee-detail {
+  text-align: right;
+}
+
+.usage {
+  font-size: 12px;
+  color: #999;
+  margin-right: 8px;
+}
+
+.fee-item.total {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #eee;
+  font-weight: bold;
+  color: #333;
+}
+
+.negative {
+  color: #f44336;
+}
+
+.fee-item.balance {
+  margin-top: 8px;
+  font-weight: bold;
+}
+
+.positive {
+  color: #4caf50;
+}
+
+.rent-info {
+  font-size: 12px;
+  color: #666;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
 }
 </style>

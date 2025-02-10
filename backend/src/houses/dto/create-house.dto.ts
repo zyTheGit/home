@@ -31,4 +31,12 @@ export class CreateHouseDto {
   @IsArray({ message: '设施必须是数组' })
   @IsString({ each: true, message: '每个设施必须是字符串' })
   amenities: string[];
+
+  @IsNumber({}, { message: '初始水表读数必须是数字' })
+  @IsOptional()
+  initialWaterReading?: number;
+
+  @IsNumber({}, { message: '初始电表读数必须是数字' })
+  @IsOptional()
+  initialElectricityReading?: number;
 } 
