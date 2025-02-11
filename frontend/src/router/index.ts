@@ -73,7 +73,6 @@ const whiteList = ["/login", "/register"];
 router.beforeEach((to, from, next) => {
   const userStore = useUserStore();
 
-  console.log("Route guard - Current token:", userStore.token); // 调试日志
   console.log("Route guard - Target path:", to.path); // 调试日志
   if (userStore.token) {
     if (to.path === "/login") {

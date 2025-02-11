@@ -80,11 +80,6 @@ const onSubmit = async () => {
       await userStore.setToken(response.data.token);
       await userStore.setUserInfo(response.data.user);
       
-      console.log('Store after login:', { 
-        token: userStore.token,
-        user: userStore.userInfo 
-      }); // 调试日志
-      
       // 获取重定向地址
       const redirect = route.query.redirect as string;
       await router.push(redirect || '/');

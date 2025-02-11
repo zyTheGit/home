@@ -1,7 +1,11 @@
 import { DataSource, DataSourceOptions } from "typeorm";
 import * as dotenv from "dotenv";
 import * as path from "path";
+import { Logger } from '@nestjs/common';
+
 dotenv.config();
+
+const logger = new Logger('DataSource');
 
 const options: DataSourceOptions = {
   type: "mysql",
@@ -12,7 +16,7 @@ const options: DataSourceOptions = {
   database: process.env.DATABASE_NAME,
   synchronize: process.env.NODE_ENV !== "production",
   // synchronize: true,
-  logging: true,
+  logging: false,
   dateStrings: true,
   entities: [path.join(__dirname, "./**/*.entity{.ts,.js}")],
   migrations: [path.join(__dirname, "./migrations/*{.ts,.js}")],
@@ -20,6 +24,16 @@ const options: DataSourceOptions = {
   subscribers: [],
 };
 
-console.log("Database options:", options);
+// 使用 NestJS Logger 输出数据库配置
+logger.log('Database configuration:', {
+  host: options.host,
+  port: options.port,
+  database: options.database,
+  username: options.username,
+  synchronize: options.synchronize,
+  timezone: options.timezone,
+  entities: options.entities,
+  migrations: options.migrations,
+});
 
 export const AppDataSource = new DataSource(options);

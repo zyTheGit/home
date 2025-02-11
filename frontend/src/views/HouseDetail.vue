@@ -39,7 +39,6 @@
               :type="paymentStatus.status === 'paid' ? 'success' : 'danger'"
             >
               {{ paymentStatus.status === "paid" ? "已缴费" : "欠费" }}
-
             </van-tag>
           </template>
         </van-cell>
@@ -61,7 +60,10 @@
       <!-- 缴费记录 -->
       <van-cell-group inset title="缴费记录">
         <!-- 添加缴费按钮 - 仅管理员可见 -->
-        <div v-if="shouldShowPaymentButton(house.status, paymentStatus.status)" class="add-payment-section">
+        <div
+          v-if="shouldShowPaymentButton(house.status, paymentStatus.status)"
+          class="add-payment-section"
+        >
           <van-button
             type="primary"
             size="small"
@@ -137,12 +139,10 @@
 
                 <div class="fee-item" v-if="payment?.balance">
                   <span>{{
-                    payment.balance > 0 ? "上次结余" : "上次欠费"
+                    payment.balance >= 0 ? "上次结余" : "上次欠费"
                   }}</span>
-                  <span
-                    :class="payment.balance > 0 ? 'positive' : 'negative'"
-                  >
-                    {{ payment.balance > 0 ? "-" : "+" }}
+                  <span :class="payment.balance >= 0 ? 'positive' : 'negative'">
+                    {{ payment.balance >= 0 ? "+" : "-" }}
                     ¥{{ calculateMoney.format(Math.abs(payment.balance)) }}
                   </span>
                 </div>
@@ -157,7 +157,6 @@
                   <span>¥{{ payment.amount }}</span>
                 </div>
               </div>
-
 
               <div class="payment-item balance">
                 <span class="label">结余</span>
@@ -199,6 +198,12 @@
             type="number"
             label="水表读数"
             placeholder="请输入水表读数"
+            :rules="[
+              {
+                validator: validateWaterUsage,
+                message: '水表读数不能小于上次读数',
+              },
+            ]"
           >
             <template #extra>
               <div class="usage-info">
@@ -221,6 +226,12 @@
             type="number"
             label="电表读数"
             placeholder="请输入电表读数"
+            :rules="[
+              {
+                validator: validateElectricityUsage,
+                message: '电表读数不能小于上次读数',
+              },
+            ]"
           >
             <template #extra>
               <div class="usage-info">
@@ -300,13 +311,14 @@
             </div>
 
             <!-- 上次欠费 -->
-            <div class="fee-item" v-if="lastPayment?.balance < 0">
-              <span>上次欠费</span>
-              <span class="negative"
-                >¥{{
-                  calculateMoney.format(Math.abs(lastPayment.balance))
-                }}</span
-              >
+            <div class="fee-item">
+              <span>{{
+                lastPayment.balance >= 0 ? "上次结余" : "上次欠费"
+              }}</span>
+              <span :class="lastPayment.balance >= 0 ? 'positive' : 'negative'">
+                {{ lastPayment.balance >= 0 ? "+" : "-" }}
+                ¥{{ calculateMoney.format(Math.abs(lastPayment.balance)) }}
+              </span>
             </div>
 
             <!-- 应缴总额 -->
@@ -398,7 +410,7 @@ const isOwner = computed(() => {
   return house.value?.userId === userStore.userInfo?.id;
 });
 
-const lastPayment = computed(() => payments.value[0] || null);
+const lastPayment = computed(() => payments.value[0] || { balance: 0 });
 
 const tenant = ref(null);
 
@@ -437,16 +449,22 @@ const calculateTotalAmount = computed(() => {
   // 添加房租
   total = calculateMoney.add(total, house.value.baseRent);
 
-  // 添加上次欠费
-  if (lastPayment.value?.balance < 0) {
-    total = calculateMoney.add(total, Math.abs(lastPayment.value.balance));
+  // 处理上次结余/欠费
+  if (lastPayment.value?.balance) {
+    if (lastPayment.value.balance < 0) {
+      // 如果是欠费，需要加到应缴总额中
+      total = calculateMoney.add(total, Math.abs(lastPayment.value.balance));
+    } else {
+      // 如果是结余，需要从应缴总额中减去
+      total = calculateMoney.subtract(total, lastPayment.value.balance);
+    }
   }
 
   return total;
 });
 
 const calculateBalance = computed(() => {
-  if (!paymentForm.actualAmount) return '0';
+  if (!paymentForm.actualAmount) return "0";
 
   // 实收金额减去应缴总额
   return calculateMoney.subtract(
@@ -455,7 +473,7 @@ const calculateBalance = computed(() => {
   );
 });
 
-const getStatusType = (status: 'available' | 'rented' | 'maintenance') => {
+const getStatusType = (status: "available" | "rented" | "maintenance") => {
   const typeMap = {
     available: "success",
     rented: "warning",
@@ -464,7 +482,7 @@ const getStatusType = (status: 'available' | 'rented' | 'maintenance') => {
   return typeMap[status] || "default";
 };
 
-const getStatusText = (status: 'available' | 'rented' | 'maintenance') => {
+const getStatusText = (status: "available" | "rented" | "maintenance") => {
   const textMap = {
     available: "可租",
     rented: "已租",
@@ -486,10 +504,18 @@ const handleBack = () => {
 const loadLastUsage = async () => {
   try {
     const response = await paymentApi.getHousePayments(Number(route.params.id));
-    const lastPayment = response.data[0]; // 获取最近一次缴费记录
+    const payments = response.data;
 
-    lastWaterUsage.value = lastPayment?.waterUsage || 0;
-    lastElectricityUsage.value = lastPayment?.electricityUsage || 0;
+    if (payments && payments.length > 0) {
+      // 获取最新的一条缴费记录
+      const lastPayment = payments[0];
+      lastWaterUsage.value = lastPayment?.waterUsage || 0;
+      lastElectricityUsage.value = lastPayment?.electricityUsage || 0;
+    } else {
+      // 如果没有缴费记录，使用房屋的初始读数
+      lastWaterUsage.value = house.value?.initialWaterReading || 0;
+      lastElectricityUsage.value = house.value?.initialElectricityReading || 0;
+    }
   } catch (error) {
     console.error("Failed to load last usage:", error);
   }
@@ -508,6 +534,7 @@ const resetForm = () => {
 
 const openAddPayment = () => {
   resetForm();
+  loadLastUsage(); // 打开弹窗时重新加载最新的水电读数
   showAddPayment.value = true;
 };
 
@@ -559,13 +586,6 @@ const loadHouseDetail = async () => {
     if (house.value.status === "rented" && house.value.tenant) {
       const tenantResponse = await tenantApi.getTenant(house.value.tenant.id);
       tenant.value = tenantResponse.data;
-      const monthlyFees = calculateMonthlyFees();
-      if (monthlyFees > 0) {
-        showNotify({
-          type: "warning",
-          message: `当前应缴费用：¥${formatNumber(monthlyFees)}`,
-        });
-      }
     }
   } catch (error) {
     console.error("Failed to load house detail:", error);
@@ -577,11 +597,11 @@ const loadHouseDetail = async () => {
 const loadPayments = async () => {
   try {
     const houseId = Number(route.params.id);
-    
+
     // 如果是普通用户，传入当前用户ID
     const userId = isAdmin.value ? undefined : userStore.userInfo?.id;
     const response = await paymentApi.getHousePayments(houseId, userId);
-    
+
     payments.value = response.data;
   } catch (error) {
     console.error("Failed to load payments:", error);
@@ -596,34 +616,6 @@ const loadBalance = async () => {
   } catch (error) {
     console.error("Failed to load balance:", error);
   }
-};
-
-const calculateMonthlyFees = (): string => {
-  if (!house.value || !tenant.value) return '0.00';
-
-
-  // 基础房租
-  let totalFees = calculateMoney.add(0, house.value.baseRent);
-
-  // 获取上次抄表记录
-  const lastPayment = payments.value[0];
-  if (lastPayment) {
-    // 水费
-    if (lastPayment.waterUsage) {
-      const waterUsed = calculateMoney.subtract(paymentForm.waterUsage, lastPayment.waterUsage);
-      const waterFee = calculateMoney.multiply(waterUsed, house.value.waterRate);
-      totalFees = calculateMoney.add(totalFees, waterFee);
-    }
-
-    // 电费
-    if (lastPayment.electricityUsage) {
-      const electricityUsed = calculateMoney.subtract(paymentForm.electricityUsage, lastPayment.electricityUsage);
-      const electricityFee = calculateMoney.multiply(electricityUsed, house.value.electricityRate);
-      totalFees = calculateMoney.add(totalFees, electricityFee);
-    }
-  }
-
-  return totalFees;
 };
 
 const loadPaymentStatus = async () => {
@@ -659,8 +651,23 @@ const calculateActualRent = computed(() => {
   return calculateMoney.format(house.value?.baseRent || 0);
 });
 
-const shouldShowPaymentButton = (houseStatus: 'available' | 'rented' | 'maintenance', paymentStatus: string) => {
-  return houseStatus !== 'available' || paymentStatus === '欠费' && isAdmin.value;
+const shouldShowPaymentButton = (
+  houseStatus: "available" | "rented" | "maintenance",
+  paymentStatus: string
+) => {
+  return (
+    houseStatus !== "available" || (paymentStatus === "欠费" && isAdmin.value)
+  );
+};
+
+const validateWaterUsage = (value: string) => {
+  if (!value) return true;
+  return Number(value) >= lastWaterUsage.value;
+};
+
+const validateElectricityUsage = (value: string) => {
+  if (!value) return true;
+  return Number(value) >= lastElectricityUsage.value;
 };
 
 onMounted(async () => {

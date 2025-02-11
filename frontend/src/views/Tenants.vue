@@ -221,13 +221,13 @@ const selectedTenant = ref<Tenant | null>(null);
 const availableHouses = ref<House[]>([]);
 const selectedHouse = ref<House | null>(null);
 
-const formData = reactive({
+const formData = ref({
   name: "",
   phone: "",
   idCard: "",
-  startDate: "",
+  startDate: dayjs().format("YYYY-MM-DD"),
   endDate: "",
-  houseId: null as number | null,
+  houseId: undefined,
 });
 
 const showPicker = ref(false);
@@ -266,7 +266,7 @@ const formatDate = (dateStr?: string) => {
 };
 
 const resetForm = () => {
-  Object.assign(formData, {
+  Object.assign(formData.value, {
     name: "",
     phone: "",
     idCard: "",
@@ -281,6 +281,10 @@ watch(showAddDialog, (newVal) => {
   if (!newVal) {
     resetForm();
     currentTenant.value = null;
+  } else {
+    if (!currentTenant.value) {
+      formData.value.startDate = dayjs().format("YYYY-MM-DD");
+    }
   }
 });
 
@@ -295,7 +299,7 @@ const checkParams = () => {
 
   // 验证必填字段
   for (const { field, label } of formFields) {
-    if (!formData[field]) {
+    if (!formData.value[field]) {
       showNotify({ type: "warning", message: `请填写${label}` });
       return false;
     }
@@ -313,9 +317,9 @@ const checkParams = () => {
 const handleSubmit = async () => {
   try {
     const data = {
-      ...formData,
-      startDate: dateUtils.formatDate(formData.startDate),
-      endDate: formData.endDate ? dateUtils.formatDate(formData.endDate) : null,
+      ...formData.value,
+      startDate: dateUtils.formatDate(formData.value.startDate),
+      endDate: formData.value.endDate ? dateUtils.formatDate(formData.value.endDate) : null,
       houseId: Number(selectedHouse.value.id), // 确保houseId是数字类型
     };
 
@@ -351,7 +355,7 @@ const viewTenant = (tenant: Tenant) => {
 
 const editTenant = (tenant: Tenant) => {
   currentTenant.value = tenant;
-  Object.assign(formData, {
+  Object.assign(formData.value, {
     ...tenant,
     startDate: formatDate(tenant.startDate),
     endDate: formatDate(tenant.endDate),
@@ -386,13 +390,13 @@ const onHouseSelect = ({ selectedValues }) => {
   const house = availableHouses.value.find((h) => h.id === value);
   if (house) {
     selectedHouse.value = house;
-    formData.houseId = house.id;
+    formData.value.houseId = house.id;
   }
   showHouseSelector.value = false;
 };
 
 const onConfirm = ({ selectedValues }) => {
-  formData[dateFieldKey.value] = selectedValues.join("-");
+  formData.value[dateFieldKey.value] = selectedValues.join("-");
   pickerValue.value = selectedValues;
   showPicker.value = false;
 };

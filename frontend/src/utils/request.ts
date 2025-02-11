@@ -15,8 +15,6 @@ request.interceptors.request.use(
     const userStore = useUserStore();
     const token = userStore.token;
 
-    console.log("Request interceptor - Token:", token); // 调试日志
-
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -29,7 +27,7 @@ request.interceptors.request.use(
 
 // 响应拦截器
 request.interceptors.response.use(
-  (response) => response,
+  (response) => response.data,
   async (error) => {
     console.log("Response interceptor - Error:", error.response?.status); // 调试日志
 

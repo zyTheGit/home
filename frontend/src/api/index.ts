@@ -7,7 +7,6 @@ import type {
   UserInfo,
   Payment,
 } from '../types';
-import { showNotify } from 'vant';
 
 // 定义后端响应数据的类型
 interface ApiResponse<T = any> {

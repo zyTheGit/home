@@ -13,7 +13,9 @@ async function bootstrap() {
     .then(() => console.log("Database connection established"))
     .catch((error) => console.log("Database connection failed", error));
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: ['error', 'warn', 'debug', 'log', 'verbose'],
+  });
 
   // 全局路由前缀
   app.setGlobalPrefix(API_PREFIX);
@@ -42,6 +44,6 @@ async function bootstrap() {
 
   app.enableCors();
 
-  await app.listen(3000, '0.0.0.0');  // 监听所有网络接口
+  await app.listen(3000);  // 监听所有网络接口
 }
 bootstrap();

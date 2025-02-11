@@ -7,6 +7,9 @@ SET sql_mode = 'NO_AUTO_VALUE_ON_ZERO';
 
 SET NAMES utf8mb4;
 
+CREATE DATABASE `rental_management` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
+USE `rental_management`;
+
 DROP TABLE IF EXISTS `house`;
 CREATE TABLE `house` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -27,9 +30,6 @@ CREATE TABLE `house` (
   CONSTRAINT `FK_77a424a7f436f2941836c9ce002` FOREIGN KEY (`tenantId`) REFERENCES `tenant` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-INSERT INTO `house` (`id`, `title`, `address`, `baseRent`, `waterRate`, `electricityRate`, `area`, `status`, `description`, `amenities`, `initialWaterReading`, `initialElectricityReading`, `tenantId`) VALUES
-(1,	'301',	'301',	400.00,	3.00,	1.00,	14.00,	'available',	'',	'',	0.00,	0.00,	NULL),
-(2,	'302',	'302',	400.00,	3.00,	1.00,	14.00,	'available',	'',	'',	0.00,	0.00,	NULL);
 
 DROP TABLE IF EXISTS `payment`;
 CREATE TABLE `payment` (
@@ -83,7 +83,5 @@ CREATE TABLE `user` (
   UNIQUE KEY `IDX_8e1f623798118e629b46a9e629` (`phone`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-INSERT INTO `user` (`id`, `phone`, `password`, `name`, `role`) VALUES
-(1,	'admin',	'$2a$10$JiH0UF0/TAX6mxeY38EBKuMkZ5JDNtGiGS.Mm/Ga3FqJOky36BHUO',	'超级管理员',	'admin');
 
--- 2025-02-10 08:48:49
+-- 2025-02-11 08:01:00

@@ -68,25 +68,31 @@ export class PaymentsService {
           lastPayment?.electricityUsage ?? house.initialElectricityReading,
       });
 
-    // 计算本次应缴总额（房租 + 水费 + 电费 + 其他费用）
-    const expectedAmount = calculateMoney.add(
-      house.baseRent,
-      calculateMoney.add(
-        calculateMoney.multiply(calculateMoney.subtract(payment.waterUsage, lastPayment?.waterUsage || 0), house.waterRate),
-        calculateMoney.multiply(
-          calculateMoney.subtract(payment.electricityUsage, lastPayment?.electricityUsage || 0),
-          house.electricityRate
+      // 计算本次应缴总额（房租 + 水费 + 电费 + 其他费用）
+      const expectedAmount = calculateMoney.add(
+        house.baseRent,
+        calculateMoney.add(
+          calculateMoney.multiply(
+            calculateMoney.subtract(payment.waterUsage, payment.previousWaterUsage),
+            house.waterRate
+          ),
+          calculateMoney.multiply(
+            calculateMoney.subtract(payment.electricityUsage, payment.previousElectricityUsage),
+            house.electricityRate
+          )
         )
-      )
-    );
-
-      // 计算余额
-      const balance = lastPayment ? lastPayment.balance : 0;
-      payment.balance = calculateMoney.subtract(
-        payment.amount,
-        calculateMoney.add(expectedAmount, balance)
       );
 
+      // 获取上次结余
+      const previousBalance = lastPayment ? lastPayment.balance : 0;
+
+      // 如果存在欠费（负数结余），需要加到应缴金额中
+      const totalExpectedAmount = previousBalance < 0 
+        ? calculateMoney.add(expectedAmount, Math.abs(previousBalance))
+        : calculateMoney.subtract(expectedAmount, previousBalance);
+
+      // 计算本次结余 = 实收金额 - 应缴总额
+      payment.balance = calculateMoney.subtract(payment.amount, totalExpectedAmount);
 
       return await this.paymentRepository.save(payment);
     } catch (error) {
@@ -195,6 +201,7 @@ export class PaymentsService {
       where: { id: houseId },
       relations: ["tenant"],
     });
+    
     if (!house || !house.tenant) {
       return {
         status: "no_tenant",
@@ -212,40 +219,26 @@ export class PaymentsService {
 
     if (!lastPayment) {
       return {
-        status: "no_tenant",
+        status: "no_payment",
         amount: 0,
         lastPaymentDate: null,
         monthsDiff: 0,
       };
     }
 
-    // 计算应缴总额（房租 + 水费 + 电费 + 其他费用）
-    const expectedAmount = calculateMoney.add(
-      house.baseRent,
-      calculateMoney.add(
-        calculateMoney.multiply(lastPayment.waterUsage || 0, house.waterRate),
-        calculateMoney.multiply(
-          lastPayment.electricityUsage || 0,
-          house.electricityRate
-        )
-      )
-    );
-
-    // 获取实际缴费总额
-    const paidAmount = await this.paymentRepository
-      .createQueryBuilder("payment")
-      .where("payment.houseId = :houseId", { houseId })
-      .select("SUM(payment.amount)", "total")
-      .getRawOne()
-      .then((result) => Number(result.total) || 0);
-
-    const balance = calculateMoney.subtract(paidAmount, expectedAmount);
-
+    // 使用最后一次缴费的结余金额
+    const balance = lastPayment.balance;
+    
     return {
+      // 如果结余为正数，表示已付清；如果为负数，表示欠费
       status: balance >= 0 ? "paid" : "unpaid",
+      // 取结余的绝对值作为金额
       amount: Math.abs(balance),
-      lastPaymentDate: lastPayment?.createdAt || null,
-      monthsDiff: 0,
+      lastPaymentDate: lastPayment.createdAt,
+      monthsDiff: this.calculateMonthsDiff(
+        lastPayment.createdAt,
+        new Date()
+      ),
     };
   }
 

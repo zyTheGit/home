@@ -25,7 +25,7 @@ import { AppController } from './app.controller';
     PaymentsModule,
     StatisticsModule,
   ],
-  controllers: [AppController],
+  controllers: [],
   providers: [],
 })
 export class AppModule {}
