@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, UnauthorizedException, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Tenant } from './entities/tenant.entity';
@@ -41,19 +41,39 @@ export class TenantsService {
 
     if (!existingUser) {
       try {
-        // 创建新用户
-        const password = createTenantDto.phone.slice(-6); // 获取手机号后6位
+        // 处理日期格式
+        const tenantData = {
+          ...createTenantDto,
+          startDate: new Date(createTenantDto.startDate),
+          endDate: createTenantDto.endDate ? new Date(createTenantDto.endDate) : null
+        };
+
+        // 更新房屋状态为已租
+        await this.houseRepository.update(house.id, { status: 'rented' });
+
+        const tenant = this.tenantsRepository.create(tenantData);
+        tenant.house = house;
+
+        // 保存租客信息
+        const savedTenant = await this.tenantsRepository.save(tenant);
+
+        // 创建新用户时设置 tenantId
+        const password = createTenantDto.phone.slice(-6);
         const user = this.userRepository.create({
           phone: createTenantDto.phone,
-          password: password, // 不要在这里加密，让 @BeforeInsert 装饰器处理
+          password: password,
           name: createTenantDto.name,
-          role: 'user'
+          role: 'user',
         });
 
-        this.logger.debug(`Creating new user with phone: ${createTenantDto.phone}, password: ${password}`);
-        
         await this.userRepository.save(user);
         this.logger.log(`Created new user for tenant: ${createTenantDto.name}`);
+
+        // 返回包含房屋信息的完整数据
+        return await this.tenantsRepository.findOne({
+          where: { id: savedTenant.id },
+          relations: ['house']
+        });
       } catch (error) {
         this.logger.error(`Failed to create user for tenant: ${error.message}`);
         throw new BadRequestException(`创建用户账号失败: ${error.message}`);
@@ -148,15 +168,35 @@ export class TenantsService {
     }
   }
 
-  async findOne(id: number) {
-    const tenant = await this.tenantsRepository.findOne({
-      where: { id },
-      relations: ['house'],
-    });
-    if (!tenant) {
-      throw new NotFoundException('未找到该租客信息');
+  async findOne(id: number, userId?: number) {
+    try {
+      const tenant = await this.tenantsRepository.findOne({
+        where: { id },
+        relations: ['house', 'payments']
+      });
+
+      if (!tenant) {
+        throw new NotFoundException('租客信息不存在');
+      }
+
+      // // 如果是普通用户，验证是否为当前用户的租客信息
+      // if (userId && tenant.id !== userId) {
+      //   throw new UnauthorizedException('无权访问该租客信息');
+      // }
+
+      // 如果是普通用户，只返回必要信息
+      if (userId) {
+        const { payments, ...basicInfo } = tenant;
+        return basicInfo;
+      }
+
+      return tenant;
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof UnauthorizedException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('获取租客信息失败');
     }
-    return tenant;
   }
 
   async remove(id: number): Promise<void> {

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, BadRequestException, Request } from '@nestjs/common';
 import { HousesService } from './houses.service';
 import { CreateHouseDto } from './dto/create-house.dto';
 import { UpdateHouseDto } from './dto/update-house.dto';
@@ -20,12 +20,9 @@ export class HousesController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    const houseId = parseInt(id, 10);
-    if (isNaN(houseId)) {
-      throw new BadRequestException('无效的房屋ID');
-    }
-    return this.housesService.findOne(houseId);
+  async findOne(@Param('id') id: string, @Request() req) {
+    const userId = req.user.role === 'user' ? req.user.id : undefined;
+    return await this.housesService.findOne(+id, userId);
   }
 
   @Patch(':id')

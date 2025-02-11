@@ -129,6 +129,13 @@ const loadTenantDetail = async () => {
       router.push("/");
       return;
     }
+    const tenantInfo = userStore.userInfo?.tenant;
+    // 如果是普通用户，只能查看自己的信息
+    if (!isAdmin.value && tenantId !== tenantInfo?.id) {
+      showNotify({ type: "danger", message: "无权访问" });
+      router.push(`/tenants/${tenantInfo  ?.id}`);
+      return;
+    }
 
     const response = await tenantApi.getTenant(tenantId);
     if (!response.data) {

@@ -6,6 +6,10 @@ interface UserState {
     id: number;
     username: string;
     role: 'admin' | 'user';
+    tenant: {
+      id: number;
+      houseId: number;
+    } | null;
   } | null;
 }
 

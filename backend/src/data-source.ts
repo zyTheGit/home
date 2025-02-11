@@ -3,7 +3,7 @@ import * as dotenv from "dotenv";
 import * as path from "path";
 import { Logger } from '@nestjs/common';
 
-dotenv.config();
+dotenv.config();  // 简化配置，因为环境文件已经由 PM2 加载
 
 const logger = new Logger('DataSource');
 

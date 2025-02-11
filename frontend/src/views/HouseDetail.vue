@@ -2,10 +2,10 @@
   <div class="house-detail">
     <van-nav-bar
       title="房屋详情"
-      :left-text="isAdmin ? '返回' : ''"
-      :left-arrow="isAdmin ? true : false"
+      left-text="返回"
+      left-arrow
       @click-left="handleBack"
-      :right-text="!isAdmin ? '退出' : ''"
+      right-text="退出"
       @click-right="handleLogout"
     />
 
@@ -30,8 +30,8 @@
         <van-cell title="电费" :value="`¥${house.electricityRate}/度`" />
       </van-cell-group>
 
-      <!-- 缴费状态 -->
-      <van-cell-group inset title="缴费状态">
+      <!-- 缴费状态 - 仅管理员可见 -->
+      <van-cell-group inset title="缴费状态" v-if="isAdmin">
         <van-cell title="状态">
           <template #default>
             <van-tag
@@ -57,8 +57,8 @@
         />
       </van-cell-group>
 
-      <!-- 缴费记录 -->
-      <van-cell-group inset title="缴费记录">
+      <!-- 缴费记录 - 仅管理员可见 -->
+      <van-cell-group inset title="缴费记录" v-if="isAdmin">
         <!-- 添加缴费按钮 - 仅管理员可见 -->
         <div
           v-if="shouldShowPaymentButton(house.status, paymentStatus.status)"
@@ -182,7 +182,7 @@
       </van-cell-group>
     </div>
 
-    <!-- 添加缴费弹窗 -->
+    <!-- 添加缴费弹窗 - 仅管理员可见 -->
     <van-dialog
       v-if="isAdmin"
       v-model:show="showAddPayment"
@@ -578,9 +578,24 @@ const loadHouseDetail = async () => {
       return;
     }
 
+    const tenantInfo = userStore.userInfo?.tenant;
+    // 如果是普通用户，只能查看自己租住的房屋
+    if (!isAdmin.value && response.data.tenant?.id !== tenantInfo?.id) {
+      showNotify({ type: "danger", message: "无权访问" });
+      router.push(`/tenants/${tenantInfo?.id}`);
+      return;
+    }
+
     house.value = response.data;
     paymentForm.baseRent = house.value.baseRent;
-    await loadPayments();
+
+    // 只有管理员可以加载缴费记录
+    if (isAdmin.value) {
+      await loadPayments();
+      await loadBalance();
+      await loadLastUsage();
+      await loadPaymentStatus();
+    }
 
     // Load tenant data if house is rented
     if (house.value.status === "rented" && house.value.tenant) {
@@ -671,11 +686,11 @@ const validateElectricityUsage = (value: string) => {
 };
 
 onMounted(async () => {
-  if (!isAdmin.value && !isOwner.value) {
-    showNotify({ type: "danger", message: "无权访问" });
-    router.push("/");
-    return;
-  }
+  // if (!isAdmin.value && !isOwner.value) {
+  //   showNotify({ type: "danger", message: "无权访问" });
+  //   router.push("/");
+  //   return;
+  // }
   await loadHouseDetail();
   await loadBalance();
   await loadLastUsage();

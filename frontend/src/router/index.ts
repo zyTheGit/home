@@ -67,28 +67,34 @@ const router = createRouter({
   },
 });
 
-// 白名单路由
-const whiteList = ["/login", "/register"];
-
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore();
+  const token = userStore.token;
+  const tenant = userStore.userInfo?.tenant;
 
-  console.log("Route guard - Target path:", to.path); // 调试日志
-  if (userStore.token) {
-    if (to.path === "/login") {
-      console.log("Already logged in, redirecting to home"); // 调试日志
-      next("/");
-    } else {
-      next();
-    }
-  } else {
-    if (whiteList.includes(to.path)) {
-      next();
-    } else {
-      console.log("No token, redirecting to login"); // 调试日志
-      next(`/login?redirect=${to.path}`);
+  // 未登录状态下只能访问登录页
+  if (!token && to.path !== '/login') {
+    return next('/login');
+  }
+
+  // 已登录状态下的登录页访问处理
+  if (to.path === '/login' && token) {
+    return userStore.isAdmin ? next('/') : next(`/tenants/${tenant.id}`);
+  }
+
+  // 普通用户权限控制
+  if (!userStore.isAdmin && tenant) { 
+    const allowedPaths = [
+      `/tenants/${tenant.id}`,  // 允许访问自己的租客详情
+      `/houses/${tenant.houseId}`,  // 允许访问自己租住的房屋详情
+    ];
+
+    if (!allowedPaths.includes(to.path) && !to.path.startsWith('/houses/')) {
+      return next(`/tenants/${tenant.id}`);
     }
   }
+
+  next();
 });
 
 export default router;

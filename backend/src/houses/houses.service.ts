@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { House } from './entities/house.entity';
@@ -31,7 +31,7 @@ export class HousesService {
     }
   }
 
-  async findOne(id: number): Promise<House> {
+  async findOne(id: number, userId?: number): Promise<House> {
     const house = await this.houseRepository.findOne({
       where: { id },
       relations: ['tenant', 'tenant.payments', 'payments']
@@ -41,16 +41,22 @@ export class HousesService {
       throw new NotFoundException('房屋不存在');
     }
 
-    if (house.tenant) {
-      const tenant = await this.tenantRepository.findOne({
-        where: { id: house.tenant.id },
-        relations: ['payments']
-      });
+    // // 如果是普通用户，只返回基础信息，不返回缴费相关信息
+    // if (userId && house.tenant?.id !== userId) {
+    //   throw new UnauthorizedException('无权访问该房屋信息');
+    // }
 
-      house.tenant = {
-        ...house.tenant,
-        payments: tenant?.payments || []
-      };
+    if (userId && house.tenant?.id === userId) {
+      // 普通用户只返回基础信息
+      const { payments, tenant, ...basicInfo } = house;
+      return {
+        ...basicInfo,
+        tenant: {
+          id: tenant.id,
+          name: tenant.name,
+          phone: tenant.phone
+        }
+      } as House;
     }
 
     return house;
