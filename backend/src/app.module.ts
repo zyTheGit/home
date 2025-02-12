@@ -14,6 +14,7 @@ import { AppController } from './app.controller';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: '.env'
     }),
     TypeOrmModule.forRootAsync({
       useFactory: () => AppDataSource.options,

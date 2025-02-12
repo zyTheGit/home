@@ -22,6 +22,12 @@ export class User {
   })
   role: 'admin' | 'user';
 
+  @Column({ nullable: true })
+  refreshToken: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  refreshTokenExpires: Date;
+
   @BeforeInsert()
   async hashPassword() {
     if (this.password) {

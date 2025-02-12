@@ -1,13 +1,6 @@
 <template>
   <div class="house-detail">
-    <van-nav-bar
-      title="房屋详情"
-      left-text="返回"
-      left-arrow
-      @click-left="handleBack"
-      right-text="退出"
-      @click-right="handleLogout"
-    />
+    <CommonNavBar />
 
     <div class="content">
       <!-- 房屋基本信息 -->
@@ -149,7 +142,7 @@
 
                 <div class="fee-item total">
                   <span>应缴总额</span>
-                  <span>¥{{ calculateTotalAmount }}</span>
+                  <span>¥{{ displayAmount }}</span>
                 </div>
 
                 <div class="fee-item total">
@@ -187,10 +180,10 @@
       v-if="isAdmin"
       v-model:show="showAddPayment"
       title="添加缴费记录"
-      :show-cancel-button="true"
-      @confirm="handleAddPayment"
+      show-cancel-button
+      :before-close="handleDialogClose"
     >
-      <van-form @submit.prevent>
+      <van-form @submit="handleAddPayment">
         <van-cell-group inset>
           <!-- 水费输入 -->
           <van-field
@@ -198,6 +191,7 @@
             type="number"
             label="水表读数"
             placeholder="请输入水表读数"
+            required
             :rules="[
               {
                 validator: validateWaterUsage,
@@ -226,6 +220,7 @@
             type="number"
             label="电表读数"
             placeholder="请输入电表读数"
+            required
             :rules="[
               {
                 validator: validateElectricityUsage,
@@ -261,7 +256,8 @@
             v-model="paymentForm.baseRent"
             type="number"
             label="房租金额"
-            :placeholder="`默认金额：${house.value?.baseRent || 0}`"
+            required
+            :placeholder="`默认金额：${house?.baseRent || 0}`"
           />
 
           <!-- 费用明细 -->
@@ -324,7 +320,7 @@
             <!-- 应缴总额 -->
             <div class="fee-item total">
               <span>应缴总额</span>
-              <span>¥{{ calculateTotalAmount }}</span>
+              <span>¥{{ paymentAmount }}</span>
             </div>
 
             <!-- 实收金额 -->
@@ -371,12 +367,13 @@
 import { ref, reactive, onMounted, computed } from "vue";
 import dayjs from "dayjs";
 import { useRouter, useRoute } from "vue-router";
-import { showDialog, showNotify } from "vant";
+import { showConfirmDialog, showDialog, showNotify } from "vant";
 import { houseApi, paymentApi, tenantApi } from "../api";
 import { calculateMoney } from "../utils/decimal";
 import { dateUtils } from "../utils/date";
 import { useUserStore } from "../stores/user";
 import type { House, Payment } from "../types";
+import CommonNavBar from "../components/CommonNavBar.vue";
 
 const router = useRouter();
 const route = useRoute();
@@ -406,9 +403,6 @@ const paymentStatus = ref({
 
 const userStore = useUserStore();
 const isAdmin = computed(() => userStore.isAdmin);
-const isOwner = computed(() => {
-  return house.value?.userId === userStore.userInfo?.id;
-});
 
 const lastPayment = computed(() => payments.value[0] || { balance: 0 });
 
@@ -432,45 +426,41 @@ const calculateElectricityFee = computed(() => {
   return calculateMoney.multiply(electricityUsed, house.value.electricityRate);
 });
 
-const calculateTotalAmount = computed(() => {
+const getTotalAmount = (includeBalance = false) => {
   let total = "0";
 
-  // 添加水费
+  // 基础费用
   total = calculateMoney.add(total, calculateWaterFee.value);
-
-  // 添加电费
   total = calculateMoney.add(total, calculateElectricityFee.value);
+  total = calculateMoney.add(total, house.value.baseRent);
 
-  // 添加其他费用
   if (paymentForm.otherAmount) {
     total = calculateMoney.add(total, paymentForm.otherAmount);
   }
 
-  // 添加房租
-  total = calculateMoney.add(total, house.value.baseRent);
-
-  // 处理上次结余/欠费
-  if (lastPayment.value?.balance) {
-    if (lastPayment.value.balance < 0) {
-      // 如果是欠费，需要加到应缴总额中
-      total = calculateMoney.add(total, Math.abs(lastPayment.value.balance));
-    } else {
-      // 如果是结余，需要从应缴总额中减去
-      total = calculateMoney.subtract(total, lastPayment.value.balance);
-    }
+  // 仅在需要时处理结余
+  if (includeBalance && lastPayment.value?.balance) {
+    const balance = Number(lastPayment.value.balance);
+    total =
+      balance < 0
+        ? calculateMoney.add(total, Math.abs(balance))
+        : calculateMoney.subtract(total, balance);
   }
 
   return total;
-});
+};
+
+// 展示用应缴金额（不包含结余）
+const displayAmount = computed(() => getTotalAmount());
+
+// 缴费记录用应缴金额（包含结余）
+const paymentAmount = computed(() => getTotalAmount(true));
 
 const calculateBalance = computed(() => {
   if (!paymentForm.actualAmount) return "0";
 
   // 实收金额减去应缴总额
-  return calculateMoney.subtract(
-    paymentForm.actualAmount,
-    calculateTotalAmount.value
-  );
+  return calculateMoney.subtract(paymentForm.actualAmount, paymentAmount.value);
 });
 
 const getStatusType = (status: "available" | "rented" | "maintenance") => {
@@ -496,9 +486,6 @@ const formatNumber = (num: number) => {
 };
 const formatDate = (date: string) => {
   return dateUtils.format(date);
-};
-const handleBack = () => {
-  router.back();
 };
 
 const loadLastUsage = async () => {
@@ -536,6 +523,45 @@ const openAddPayment = () => {
   resetForm();
   loadLastUsage(); // 打开弹窗时重新加载最新的水电读数
   showAddPayment.value = true;
+};
+
+const checkParams = () => {
+  // 添加校验逻辑
+  const formFields = [
+    { field: "waterUsage", label: "水表读数" },
+    { field: "electricityUsage", label: "电表读数" },
+    { field: "baseRent", label: "房租金额" },
+    { field: "actualAmount", label: "实收金额" },
+  ];
+
+  // 验证必填字段
+  for (const { field, label } of formFields) {
+    if (!paymentForm[field as keyof typeof paymentForm]) {
+      showNotify({ type: "warning", message: `请填写${label}` });
+      return false;
+    }
+  }
+
+  return true;
+};
+
+const handleDialogClose = (action: string) => {
+  if (action === "confirm") {
+    if (checkParams()) {
+      handleAddPayment();
+    }
+    return false;
+  } else {
+    showConfirmDialog({
+      title: "确认关闭",
+      message: "确定要关闭吗？",
+      confirmButtonText: "确认关闭",
+    }).then(() => {
+      showAddPayment.value = false;
+
+      return true;
+    });
+  }
 };
 
 const handleAddPayment = async () => {
@@ -644,19 +670,6 @@ const loadPaymentStatus = async () => {
   }
 };
 
-const handleLogout = () => {
-  showDialog({
-    title: "退出登录",
-    message: "确定要退出登录吗？",
-    showCancelButton: true,
-  })
-    .then(() => {
-      userStore.clearUserInfo();
-      router.push("/login");
-    })
-    .catch(() => {});
-};
-
 // 计算实际房租
 const calculateActualRent = computed(() => {
   if (paymentForm.baseRent) {
@@ -683,6 +696,17 @@ const validateWaterUsage = (value: string) => {
 const validateElectricityUsage = (value: string) => {
   if (!value) return true;
   return Number(value) >= lastElectricityUsage.value;
+};
+
+const validatePositiveNumber = (value: string) => {
+  if (!value) return true;
+  return /^\d*\.?\d+$/.test(value) && Number(value) >= 0;
+};
+
+const validateUsage = (value: string, lastUsage: number) => {
+  if (!value) return true;
+  const numValue = Number(value);
+  return numValue >= lastUsage && numValue <= lastUsage + 1000; // 限制最大用量
 };
 
 onMounted(async () => {

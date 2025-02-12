@@ -1,22 +1,41 @@
-import { defineStore } from 'pinia';
+import { defineStore } from "pinia";
+import type { UserInfo } from "../types";
 
 interface UserState {
   token: string;
-  userInfo: {
-    id: number;
-    username: string;
-    role: 'admin' | 'user';
-    tenant: {
-      id: number;
-      houseId: number;
-    } | null;
-  } | null;
+  refreshToken: string;
+  userInfo: UserInfo | null;
+  isRefreshing: boolean;
 }
 
+const safeLocalStorage = {
+  getItem(key: string) {
+    try {
+      return localStorage.getItem(key);
+    } catch (error) {
+      return sessionStorage.getItem(key);
+    }
+  },
+  setItem(key: string, value: string) {
+    try {
+      localStorage.setItem(key, value);
+    } catch (error) {
+      sessionStorage.setItem(key, value);
+    }
+  }
+};
+
 export const useUserStore = defineStore('user', {
+  persist: {
+    key: "user-store",
+    storage: localStorage,
+  },
+
   state: (): UserState => ({
-    token: '',
-    userInfo: null
+    userInfo: null,
+    token: safeLocalStorage.getItem("token") || "",
+    refreshToken: safeLocalStorage.getItem("refreshToken") || "",
+    isRefreshing: false,
   }),
 
   getters: {
@@ -25,27 +44,25 @@ export const useUserStore = defineStore('user', {
   },
 
   actions: {
-    setToken(token: string) {
+    setToken(token: string, refreshToken: string) {
       this.token = token;
-      localStorage.setItem('token', token);
-      console.log('Token set:', this.token); // 调试日志
+      this.refreshToken = refreshToken;
+      safeLocalStorage.setItem("token", token);
+      safeLocalStorage.setItem("refreshToken", refreshToken);
     },
 
-    setUserInfo(userInfo: UserState['userInfo']) {
+    setUserInfo(userInfo: UserState["userInfo"]) {
       this.userInfo = userInfo;
-      console.log('UserInfo set:', this.userInfo); // 调试日志
+      console.log("UserInfo set:", this.userInfo); // 调试日志
     },
 
     clearUserInfo() {
-      console.log('Clearing user info'); // 调试日志
-      this.token = '';
+      this.token = "";
+      this.refreshToken = "";
       this.userInfo = null;
-      localStorage.removeItem('token');
-    }
+      safeLocalStorage.setItem("token", "");
+      safeLocalStorage.setItem("refreshToken", "");
+      sessionStorage.removeItem("user-store"); // 清除可能存在的session备份
+    },
   },
-
-  persist: {
-    key: 'user-store',
-    storage: localStorage
-  }
 });

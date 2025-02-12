@@ -1,11 +1,6 @@
 <template>
   <div class="houses-container">
-    <van-nav-bar
-      title="房源管理"
-      left-text="返回"
-      left-arrow
-      @click-left="handleBack"
-    />
+    <CommonNavBar />
 
     <div class="content-wrapper">
       <van-button
@@ -285,10 +280,6 @@ const getStatusType = (status: string) => {
     default:
       return "default";
   }
-};
-
-const handleBack = () => {
-  router.back();
 };
 
 const loadData = async () => {

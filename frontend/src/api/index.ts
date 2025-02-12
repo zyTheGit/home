@@ -1,3 +1,5 @@
+
+import { AxiosError } from 'axios';
 import request from '../utils/request';
 import type {
   House,
@@ -6,15 +8,10 @@ import type {
   LoginResponse,
   UserInfo,
   Payment,
+  ApiResponse,
 } from '../types';
+import { useUserStore } from '../stores/user';
 
-// 定义后端响应数据的类型
-interface ApiResponse<T = any> {
-  data: T;
-  message?: string;
-  statusCode: number;
-  errors?: string[];
-}
 
 // API 接口定义
 export const authApi = {
@@ -22,6 +19,8 @@ export const authApi = {
     request.post<ApiResponse<LoginResponse>>('/auth/login', { phone, password }),
   logout: () => request.post<ApiResponse<void>>('/auth/logout'),
   getCurrentUser: () => request.get<ApiResponse<UserInfo>>('/auth/me'),
+  refreshToken: (refreshToken: string) => 
+    request.post<ApiResponse<LoginResponse>>('/auth/refresh', { refreshToken }),
 };
 
 export const houseApi = {
@@ -70,3 +69,16 @@ interface PaymentStatus {
   lastPaymentDate: string | null;
   monthsDiff: number;
 }
+
+// 修改重试处理逻辑
+const retryHandler = (error: AxiosError) => {
+  if (error.config && error.response?.status === 401) {
+    return authApi.refreshToken(useUserStore().refreshToken).then(() => request(error.config!))
+  }
+  return Promise.reject(error)
+}
+
+// 在请求拦截器中添加
+request.interceptors.response.use(undefined, error => {
+  return retryHandler(error)
+})

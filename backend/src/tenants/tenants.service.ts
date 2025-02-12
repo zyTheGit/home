@@ -212,7 +212,10 @@ export class TenantsService {
 
       // 将房屋状态改为可租
       if (tenant.house) {
-        await this.houseRepository.update(tenant.house.id, { status: 'available' });
+        await this.houseRepository.update(tenant.house.id, { 
+          status: 'available',
+          tenant: null
+        });
       }
 
       await this.tenantsRepository.remove(tenant);

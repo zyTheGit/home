@@ -1,14 +1,11 @@
 -- Adminer 4.8.1 MySQL 8.0.41 dump
 
 SET NAMES utf8;
-SET time_zone = '+00:00';
+SET time_zone = '+08:00';
 SET foreign_key_checks = 0;
 SET sql_mode = 'NO_AUTO_VALUE_ON_ZERO';
 
 SET NAMES utf8mb4;
-
--- CREATE DATABASE `rental_management` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
--- USE `rental_management`;
 
 DROP TABLE IF EXISTS `house`;
 CREATE TABLE `house` (
@@ -79,9 +76,11 @@ CREATE TABLE `user` (
   `password` varchar(255) NOT NULL,
   `name` varchar(255) NOT NULL,
   `role` enum('admin','user') NOT NULL DEFAULT 'user',
+  `refreshToken` varchar(255) DEFAULT NULL,
+  `refreshTokenExpires` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `IDX_8e1f623798118e629b46a9e629` (`phone`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
--- 2025-02-11 08:01:00
+-- 2025-02-12 04:58:20

@@ -1,10 +1,6 @@
 <template>
   <div class="tenants">
-    <!-- 替换原有的 van-nav-bar -->
-    <van-nav-bar title="租客管理" 
-      left-text="返回"
-      left-arrow
-      @click-left="handleBack" />
+    <CommonNavBar />
 
     <div class="content-wrapper">
       <van-button
@@ -234,10 +230,6 @@ const showPicker = ref(false);
 const dateFieldKey = ref("");
 const pickerValue = ref([]);
 
-const handleBack = () => {
-  router.back();
-};
-
 const loadTenants = async () => {
   try {
     const { data } = await tenantApi.getTenants();
@@ -299,7 +291,7 @@ const checkParams = () => {
 
   // 验证必填字段
   for (const { field, label } of formFields) {
-    if (!formData.value[field]) {
+    if (!formData.value[field as keyof typeof formData.value]) {
       showNotify({ type: "warning", message: `请填写${label}` });
       return false;
     }

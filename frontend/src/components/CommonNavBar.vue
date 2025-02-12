@@ -1,42 +1,57 @@
 <template>
   <van-nav-bar
-    :title="title"
-    left-arrow
-    @click-left="$router.back()"
+    :title="route.meta?.title || '租房管理系统'"
+    :left-text="shouldShowBack ? '返回' : ''"
+    :left-arrow="shouldShowBack"
+    @click-left="handleBack"
+    :right-text="userStore.isLoggedIn ? '退出' : ''"
+    @click-right="handleLogout"
   >
-    <template #right>
-      <van-icon name="logout" @click="handleLogout" />
+    <template #right v-if="!userStore.isLoggedIn">
+      <van-button size="small" type="primary" @click="router.push('/login')">
+        登录
+      </van-button>
     </template>
   </van-nav-bar>
 </template>
 
 <script setup lang="ts">
-import { useUserStore } from '../stores/user';
-import { useRouter } from 'vue-router';
-import { showConfirmDialog, showToast, showFailToast } from 'vant';
-import { authApi } from '../api';
+import { showDialog, showToast } from "vant";
+import { useRouter, useRoute } from "vue-router";
+import { computed } from "vue";
+import { useUserStore } from "../stores/user";
 
-const props = defineProps<{
-  title: string;
-}>();
-
-const userStore = useUserStore();
 const router = useRouter();
+const route = useRoute();
+const userStore = useUserStore();
+
+const shouldShowBack = computed(() => {
+  // 管理员专属返回按钮
+  if (route.meta?.showBackForAdmin) {
+    return userStore.isAdmin;
+  }
+  // 普通返回按钮逻辑
+  return route.meta?.showBack ?? false;
+});
+
+const handleBack = () => {
+
+  router.go(-1);
+};
 
 const handleLogout = async () => {
   try {
-    await showConfirmDialog({
-      title: '确认退出',
-      message: '确定要退出登录吗？',
+    await showDialog({
+      title: "退出登录",
+      message: "确定要退出登录吗？",
+      showCancelButton: true,
     });
-
-    await authApi.logout();
-    userStore.clearUser();
-    showToast('已退出登录');
-    router.push('/login');
-  } catch (error: any) {
-    if (!error.toString().includes('cancel')) {
-      showFailToast('退出失败');
+    userStore.clearUserInfo();
+    showToast("已退出登录");
+    router.push("/login");
+  } catch (error) {
+    if (!error?.message?.includes("cancel")) {
+      showToast("退出失败");
     }
   }
 };
@@ -59,5 +74,10 @@ const handleLogout = async () => {
 
 :deep(.van-nav-bar__text) {
   color: white;
+}
+
+:deep(.van-button) {
+  height: 28px;
+  line-height: 28px;
 }
 </style>

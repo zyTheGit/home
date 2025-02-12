@@ -1,13 +1,6 @@
 <template>
   <div class="tenant-detail">
-    <van-nav-bar
-      title="租客详情"
-      :left-text="isAdmin ? '返回' : ''"
-      :left-arrow="isAdmin ? true : false"
-      @click-left="handleBack"
-      :right-text="!isAdmin ? '退出' : ''"
-      @click-right="handleLogout"
-    />
+    <CommonNavBar />
 
     <div class="content">
       <!-- 租客基本信息 -->
@@ -15,8 +8,8 @@
         <van-cell title="姓名" :value="tenant.name" />
         <van-cell title="手机号" :value="tenant.phone" />
         <van-cell title="身份证号" :value="tenant.idCard" />
-        <van-cell title="入住时间" :value="dateUtils.format(tenant.startDate)" />
-        <van-cell title="到期时间" :value="dateUtils.format(tenant?.endDate)" />
+        <van-cell title="入住时间" :value="dateUtils.formatDate(tenant.startDate)" />
+        <van-cell title="到期时间" :value="dateUtils.formatDate(tenant?.endDate)" />
       </van-cell-group>
 
       <!-- 房屋信息 -->
@@ -82,12 +75,13 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import { showDialog, showNotify } from "vant";
+import { showNotify } from "vant";
 import { tenantApi, paymentApi } from "../api";
 import { useUserStore } from "../stores/user";
 import type { Tenant, Payment } from "../types";
 import { calculateMoney } from "../utils/decimal";
 import { dateUtils } from "../utils/date";
+import CommonNavBar from '../components/CommonNavBar.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -95,23 +89,6 @@ const userStore = useUserStore();
 const tenant = ref<Tenant>({} as Tenant);
 const payments = ref<Payment[]>([]);
 const isAdmin = computed(() => userStore.isAdmin);
-
-const handleBack = () => {
-  router.back();
-};
-
-const handleLogout = () => {
-  showDialog({
-    title: "退出登录",
-    message: "确定要退出登录吗？",
-    showCancelButton: true,
-  })
-    .then(() => {
-      userStore.clearUserInfo();
-      router.push("/login");
-    })
-    .catch(() => {});
-};
 
 const formatNumber = (num: number) => {
   return num?.toLocaleString("zh-CN", { minimumFractionDigits: 2 });

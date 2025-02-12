@@ -80,6 +80,8 @@ const onSubmit = async () => {
       await userStore.setToken(response.data.token);
       await userStore.setUserInfo(response.data.user);
       
+      // 在用户存储中根据角色生成权限
+      
       // 获取重定向地址
       const redirect = route.query.redirect as string;
       await router.push(redirect || '/');

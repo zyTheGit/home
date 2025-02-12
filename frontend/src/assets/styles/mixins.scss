@@ -1,0 +1,14 @@
+@mixin mobile-adaptation {
+  @media (max-width: 768px) {
+    padding: 8px;
+    .van-field__label {
+      width: 80px !important;
+    }
+    // 其他移动端样式优化
+  }
+}
+
+// 在组件样式中应用
+.house-list {
+  @include mobile-adaptation;
+} 

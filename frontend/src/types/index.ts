@@ -3,6 +3,7 @@ export interface UserInfo {
   username: string;
   phone: string;
   role: "admin" | "user";
+  tenant?: Tenant;
 }
 
 export interface House {
@@ -51,6 +52,7 @@ export interface Statistics {
 
 export interface LoginResponse {
   token: string;
+  refreshToken: string;
   user: UserInfo;
 }
 
@@ -66,4 +68,11 @@ export interface Payment {
   balance: number;
   tenantId?: number;
   otherAmount?: number;
+}
+
+export interface ApiResponse<T = any> {
+  data: T;
+  message?: string;
+  statusCode: number;
+  errors?: string[];
 }

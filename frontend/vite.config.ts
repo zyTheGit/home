@@ -33,4 +33,9 @@ export default defineConfig({
   define: {
     global: "globalThis",
   },
+  optimizeDeps: {
+    include: [
+      'vue-virtual-scroller'
+    ]
+  }
 });

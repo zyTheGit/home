@@ -27,3 +27,12 @@ export const calculateMoney = {
     return new Decimal(num || 0).toFixed(2);
   }
 };
+
+// 添加新的格式化方法
+export const formatCurrency = (num: number | string) => {
+  return new Decimal(num).toDecimalPlaces(2).toNumber().toLocaleString('zh-CN', {
+    style: 'currency',
+    currency: 'CNY',
+    minimumFractionDigits: 2
+  })
+}
