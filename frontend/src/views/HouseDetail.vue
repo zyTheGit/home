@@ -333,9 +333,9 @@
 
             <!-- 本次结余/欠费 -->
             <div class="fee-item balance" v-if="paymentForm.actualAmount">
-              <span>{{ calculateBalance >= 0 ? "本次结余" : "本次欠费" }}</span>
-              <span :class="calculateBalance >= 0 ? 'positive' : 'negative'">
-                ¥{{ calculateMoney.format(Math.abs(calculateBalance)) }}
+              <span>{{ +calculateBalance >= 0 ? "本次结余" : "本次欠费" }}</span>
+              <span :class="+calculateBalance >= 0 ? 'positive' : 'negative'">
+                ¥{{ calculateMoney.format(Math.abs(+calculateBalance)) }}
               </span>
             </div>
           </div>
@@ -586,6 +586,7 @@ const handleAddPayment = async () => {
     showAddPayment.value = false;
     loadPayments();
     loadBalance();
+    loadPaymentStatus();
   } catch (error) {
     console.error("Failed to add payment:", error);
     showNotify({
@@ -696,17 +697,6 @@ const validateWaterUsage = (value: string) => {
 const validateElectricityUsage = (value: string) => {
   if (!value) return true;
   return Number(value) >= lastElectricityUsage.value;
-};
-
-const validatePositiveNumber = (value: string) => {
-  if (!value) return true;
-  return /^\d*\.?\d+$/.test(value) && Number(value) >= 0;
-};
-
-const validateUsage = (value: string, lastUsage: number) => {
-  if (!value) return true;
-  const numValue = Number(value);
-  return numValue >= lastUsage && numValue <= lastUsage + 1000; // 限制最大用量
 };
 
 onMounted(async () => {

@@ -19,6 +19,8 @@ export interface House {
   amenities: string[];
   userId?: number;
   tenant?: Tenant;
+  initialWaterReading?: number;
+  initialElectricityReading?: number;
 }
 
 export interface Tenant {

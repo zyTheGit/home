@@ -72,27 +72,27 @@ const onSubmit = async () => {
   try {
     loading.value = true;
     const response = await authApi.login(phone.value, password.value);
-    
-    console.log('Login response:', response); // 调试日志
-    
-    if (response.data?.token) {
+
+    console.log("Login response:", response); // 调试日志
+    const { token, user, refreshToken } = response.data ?? {};
+    if (token) {
       // 确保按正确顺序设置状态
-      await userStore.setToken(response.data.token);
-      await userStore.setUserInfo(response.data.user);
-      
+      await userStore.setToken(token, refreshToken);
+      await userStore.setUserInfo(user);
+
       // 在用户存储中根据角色生成权限
-      
+
       // 获取重定向地址
       const redirect = route.query.redirect as string;
-      await router.push(redirect || '/');
-      
-      showToast({ type: 'success', message: '登录成功' });
+      await router.push(redirect || "/");
+
+      showToast({ type: "success", message: "登录成功" });
     } else {
-      throw new Error('登录响应中没有token');
+      throw new Error("登录响应中没有token");
     }
   } catch (error) {
-    console.error('Login failed:', error);
-    showFailToast(error.response?.data?.message || '登录失败');
+    console.error("Login failed:", error);
+    showFailToast(error.response?.data?.message || "登录失败");
   } finally {
     loading.value = false;
   }
@@ -100,7 +100,7 @@ const onSubmit = async () => {
 
 onMounted(() => {
   if (userStore.token) {
-    router.push('/');
+    router.push("/");
   }
 });
 </script>
@@ -113,7 +113,7 @@ onMounted(() => {
   align-items: center;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   padding: 20px;
-  overflow:hidden;
+  overflow: hidden;
 }
 
 .login-header {
